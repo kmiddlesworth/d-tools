@@ -100,10 +100,10 @@
                                                 
                         var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 4) + '</pre>',
                             projectBtn = '<a class="button" href="' + gSheetData.sheets.config[0].projecturl + '">Project: ' + gSheetData.sheets.config[0].projectname + '</a>',
-                            phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;?= include("/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php") ?&gt;</pre>',
+                            phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php&quot;)) ?&gt;</pre>',
                             phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.key + '.js") ?&gt;&lt;/script&gt;</pre>';
                         
-                        document.getElementById("wrapper").innerHTML = d + projectBtn + phpIncludeCode + dataString;
+                        document.getElementById("wrapper").innerHTML = d + projectBtn + phpJsIncludeCode + phpIncludeCode + dataString;
                     
                     });
 
@@ -116,5 +116,6 @@
             }
         </script>
     </body>
-
+    <? $gSheeData = unserialize(file_get_contents($_SERVER['DOCUMENT_ROOT'] . "/d-tools/g-sheets/json-output-php/16-FMWkkeBPI5hoF0up55ryFflbcMAftM5C_fNmboDlU.php")) ?>
+    <?= htmlentities('<? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-php/16-FMWkkeBPI5hoF0up55ryFflbcMAftM5C_fNmboDlU.php")) ?>') ?>
 </html>

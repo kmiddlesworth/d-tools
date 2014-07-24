@@ -19,60 +19,63 @@ function sheetServe(keyStr) {
 	var self = this;
 	self.meta = new Object(),
 	self.sheets = new Object(),
+	self.meta.config = new Object(),
+	self.meta.key = keyStr,
 	self.meta.jsonQuery = '?alt=json&callback=?',
 	self.meta.loaded = false,
-	self.meta.sheetUrl = 'https://spreadsheets.google.com/feeds/worksheets/' + keyStr + '/public/basic' + self.meta.jsonQuery,
+	self.meta.addPartials = false,
+	self.meta.sheetUrl = 'https://spreadsheets.google.com/feeds/worksheets/' + self.meta.key + '/public/basic' + self.meta.jsonQuery,
 	self.meta.googlePrefix = 'gsx$',
 	self.meta.googleCellKey = '$t',
-	self.meta.key = keyStr,
-	self.meta.addPatrials = false,
-	self.meta.partialsStr = '-partial',
-	self.meta.config = new Object();
+	self.meta.partialsStr = '-partial';
 }
+sheetServe.prototype.grabPartials = function () {
+	this.sheets.partials = {};
+	for (sheet in this.sheets) {
+		if (sheet.indexOf(this.meta.partialsStr) > -1) {
+			this.sheets.partials[sheet] = this.sheets[sheet];
+		}
+	}
+}
+sheetServe.prototype.injectPartials = function (key, d) {
+	// grab all of the partial tabs and put them into a variable
+	allPartialsArr = this.sheets.partials;
+	console.log(this);
+	console.log(allPartialsArr);
 
-sheetServe.prototype.addPartials = function(key, d) {
-	var self = this,
-		partialDeleteArr = [];
-
-	function injectPartials(sheetKey) {
-		// for each tab...
-		for (var i = 0; i < self.sheets[sheetKey].length; i++) {
-			// in each tab's row...
-			for (var colName in self.sheets[sheetKey][i]) {
-				// if the group name was called by a cell
-				if (colName.indexOf(self.meta.partialsStr) != -1) {
-					// 1) leave trace that partials are being added in the meta object
-					self.meta.addPartials = true;
-					// 2) set the column name to a variable
-					var partialIdKey = self.sheets[sheetKey][i][colName];
-					// 3) set the partial row to a variable to be manipulated
-					var newAttr = self.sheets[colName].filter(function(item, i) {
-						return partialIdKey == item.partialid;
-					});
-					console.log(newAttr[0]);
-					var newAttrName = newAttr[0].partialid;
-					console.log(newAttrName);
-					delete newAttr[0].partialid;
-					console.log(newAttr[0]);
-					self.sheets[sheetKey][i][newAttrName] = newAttr[0];
-					delete self.sheets[sheetKey][i][colName];
-					if ($.inArray(colName, partialDeleteArr) == -1) {
-						partialDeleteArr.push(colName);
+	function injectPartial(thisTab, thisRow) {
+		var tempArr = allPartialsArr,
+			correctObj = {};
+		for (var i = tempArr[thisTab].length - 1; i >= 0; i--) {
+			if (thisRow == tempArr[thisTab][i]["partialid"]) {
+				tempArr[thisTab][i]["partialid"] = undefined;
+				return tempArr[thisTab][i];
+			}
+		}
+	}
+	console.log(self.sheets);
+	for (sheetName in self.sheets) {
+		var tab = self.sheets[sheetName];
+		for (var row = tab.length - 1, thisRow; row >= 0; row--) {
+			thisRow = tab[row];
+			for (column in thisRow) {
+				if (column.indexOf(self.meta.partialsStr) > -1) {
+					var cell = thisRow[column];
+					if (Array.isArray(cell)) {
+						for (var i = cell.length - 1; i >= 0; i--) {
+							self.sheets[sheetName][row][column][i] = injectPartial(column, cell);
+						}
+					} else {
+						self.sheets[sheetName][row][cell] = injectPartial(column, cell);
+						console.log(self.sheets[sheetName][row][column]);
 					}
 				}
 			}
 		}
 	}
-	for (var sheetKey in self.sheets) {
-		injectPartials(sheetKey);
-	}
-	for (var i = 0, total = partialDeleteArr.length; i < total; i++) {
-		delete self.sheets[partialDeleteArr[i]];
-	}
 	return self;
 }
-
-sheetServe.prototype.cleanRowData = function(d, sheetKey) {
+sheetServe.prototype.cleanRowData = function (d, sheetKey) {
 	var self = this,
 		newArr = [],
 		partialsArr = [];
@@ -103,8 +106,7 @@ sheetServe.prototype.cleanRowData = function(d, sheetKey) {
 	}
 	return newArr;
 }
-
-sheetServe.prototype.onload = function(finished) {
+sheetServe.prototype.onload = function (finished) {
 	var self = this;
 
 	function ajaxGetter(url, eachCallback, finalCallback) {
@@ -112,47 +114,49 @@ sheetServe.prototype.onload = function(finished) {
 		if (!isArray) url = [url];
 		var totalCount = url.length,
 			currentCount = 0;
-		var ajaxArr = $.map(url, function(item, i) {
+		var ajaxArr = $.map(url, function (item, i) {
 			var nonce = (url[i].indexOf('?') == -1) ? '?nonce=' : '&nonce=';
-			return $.getJSON(url[i] + nonce + Date.now(), function(d) {
+			return $.getJSON(url[i] + nonce + Date.now(), function (d) {
 				eachCallback(d);
 			});
 		});
-		$.when.apply(this, ajaxArr).then(function() {
+		$.when.apply(this, ajaxArr).then(function () {
 			if (finalCallback) finalCallback();
-		}).fail(function() {
+		}).fail(function () {
 			console.log("failed");
 		});
 	}
-
-	$(window).off('sheetsLoaded.' + self.key).on('sheetsLoaded.' + self.key, function(e) {
+	$(window).off('sheetsLoaded.' + self.key).on('sheetsLoaded.' + self.key, function (e) {
 		finished();
 	});
-	// if connected to internet
+	// if not connected to internet
 	if (!navigator.onLine) {
 		$.extend(self, JSON.parse(localStorage.getItem(self.key)));
 		$(window).trigger('sheetsLoaded.' + self.key);
 		return;
 	} else {
-		ajaxGetter(self.meta.sheetUrl, function(data) {
+		ajaxGetter(self.meta.sheetUrl, function (data) {
 			self.meta.title = data.feed.title.$t;
 			self.meta.timestamp = data.feed.updated.$t;
 			var tempArr = [];
 			for (var x = 0; x < data.feed.entry.length; x++) {
 				tempArr.push(data.feed.entry[x].id.$t.replace('/worksheets/', '/list/').replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 			}
-			ajaxGetter(tempArr, function(d) {
+			ajaxGetter(tempArr, function (d) {
 					self.sheets[d.feed.title.$t] = self.cleanRowData(d.feed.entry, d.feed.title.$t);
 				},
-				function() {
+				function () {
 					// injects partials into respective places
-					self = self.addPartials();
+					self.grabPartials();
+					self = self.injectPartials();
 					$(window).trigger('sheetsLoaded.' + self.key);
 				});
 		});
+		console.log()
 	}
 	return;
 }
+console.log(sheetServe);
 
 function preprocessor(rawObj) {
 	rawObj.meta.config = rawObj.sheets.config[0];
@@ -164,14 +168,16 @@ function toFileWriter(obj, fileName, callback) {
 		url: 'buildjson.php',
 		type: 'post',
 		data: {
-			input: JSON.stringify(obj),
+			// convert object into string for php
+			data: JSON.stringify(obj),
+			// send the key along side it
 			key: obj.meta.key
 		},
-		success: function(data) {
+		success: function (data) {
 			obj.meta.loaded = true;
 			preprocessor(obj);
 			if (callback) callback(data);
 		},
-		error: function(jqXHR, textStatus, error) {}
+		error: function (jqXHR, textStatus, error) {}
 	});
 }

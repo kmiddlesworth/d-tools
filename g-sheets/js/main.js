@@ -27,21 +27,20 @@ function sheetServe(keyStr) {
 	self.meta.sheetUrl = 'https://spreadsheets.google.com/feeds/worksheets/' + self.meta.key + '/public/basic' + self.meta.jsonQuery,
 	self.meta.googlePrefix = 'gsx$',
 	self.meta.googleCellKey = '$t',
-	self.meta.partialsStr = '-partial';
+	self.meta.partialStr = '-partial';
 }
 sheetServe.prototype.grabPartials = function () {
 	this.sheets.partials = {};
 	for (sheet in this.sheets) {
-		if (sheet.indexOf(this.meta.partialsStr) > -1) {
+		if (sheet.indexOf(this.meta.partialStr) > -1) {
 			this.sheets.partials[sheet] = this.sheets[sheet];
 		}
 	}
 }
 sheetServe.prototype.injectPartials = function (key, d) {
 	// grab all of the partial tabs and put them into a variable
-	allPartialsArr = this.sheets.partials;
-	console.log(this);
-	console.log(allPartialsArr);
+	var self = this,
+		allPartialsArr = this.sheets.partials;
 
 	function injectPartial(thisTab, thisRow) {
 		var tempArr = allPartialsArr,
@@ -53,27 +52,44 @@ sheetServe.prototype.injectPartials = function (key, d) {
 			}
 		}
 	}
-	console.log(self.sheets);
-	for (sheetName in self.sheets) {
-		var tab = self.sheets[sheetName];
+
+	function findInnerPartials(partialRow) {
+		for (partialName in partialRow) {
+			if (partialName.indexOf(self.meta.partialStr) > -1) {
+				console.log(partialName);
+			}
+		}
+	}
+	for (partial in this.sheets.partials) {
+		for (var i = this.sheets.partials[partial].length - 1; i >= 0; i--) {
+			findInnerPartials(this.sheets.partials[partial][i]);
+		}
+	}
+	console.log(this);
+	for (sheetName in this.sheets) {
+		// iterates through each tab, storing it in a variable
+		var tab = this.sheets[sheetName];
 		for (var row = tab.length - 1, thisRow; row >= 0; row--) {
-			thisRow = tab[row];
+			// iterates through each row, storing it in a variable
+			var thisRow = tab[row];
+			// find all of the columns, and see if any match the partialStr attribute
 			for (column in thisRow) {
-				if (column.indexOf(self.meta.partialsStr) > -1) {
+				// if they do, then
+				if (column.indexOf(this.meta.partialStr) > -1) {
+					// figure out if the cell in that row and in that column is an array or a string
 					var cell = thisRow[column];
 					if (Array.isArray(cell)) {
 						for (var i = cell.length - 1; i >= 0; i--) {
-							self.sheets[sheetName][row][column][i] = injectPartial(column, cell);
+							this.sheets[sheetName][row][column][i] = injectPartial(column, cell);
 						}
 					} else {
-						self.sheets[sheetName][row][cell] = injectPartial(column, cell);
-						console.log(self.sheets[sheetName][row][column]);
+						this.sheets[sheetName][row][cell] = injectPartial(column, cell);
 					}
 				}
 			}
 		}
 	}
-	return self;
+	return this;
 }
 sheetServe.prototype.cleanRowData = function (d, sheetKey) {
 	var self = this,
@@ -143,22 +159,21 @@ sheetServe.prototype.onload = function (finished) {
 				tempArr.push(data.feed.entry[x].id.$t.replace('/worksheets/', '/list/').replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 			}
 			ajaxGetter(tempArr, function (d) {
-					self.sheets[d.feed.title.$t] = self.cleanRowData(d.feed.entry, d.feed.title.$t);
-				},
-				function () {
-					// injects partials into respective places
-					self.grabPartials();
-					self = self.injectPartials();
-					$(window).trigger('sheetsLoaded.' + self.key);
-				});
+				self.sheets[d.feed.title.$t] = self.cleanRowData(d.feed.entry, d.feed.title.$t);
+			}, function () {
+				// injects partials into respective places
+				self.grabPartials();
+				self = self.injectPartials();
+				$(window).trigger('sheetsLoaded.' + self.key);
+			});
 		});
 		console.log()
 	}
 	return;
 }
-console.log(sheetServe);
 
 function preprocessor(rawObj) {
+	console.log(rawObj);
 	rawObj.meta.config = rawObj.sheets.config[0];
 	delete rawObj.sheets.config;
 }

@@ -49,7 +49,7 @@ SheetServe.prototype.toFileWriter = function toFileWriter(obj, fileName, callbac
 };
 
 SheetServe.prototype.moveFromSheetsToMeta = function moveFromSheetsToMeta(thisObj) {
-	this.meta[thisObj] = this.sheets[thisObj];
+	this.meta[thisObj] = this.sheets[thisObj][0];
 	delete this.sheets[thisObj];
 	return this.meta[thisObj];
 };

@@ -164,16 +164,11 @@ textarea {
         }
 
         .con {
-            max-width: 100%;
-            max-width:1280px;
+            width: 100%;
+            max-width:1000px;
             -webkit-align-self: center;
             align-self: center;
-            margin:0 auto;
-        }
-
-        #container {
-
-
+            margin: 0 auto;
         }
 
         .slide {

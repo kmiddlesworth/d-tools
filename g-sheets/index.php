@@ -16,7 +16,6 @@
 	<style>
 		body {
 			padding:30px 0;
-
 		}
 		h1 {
 			margin-bottom:0;
@@ -29,7 +28,6 @@
 			font-size:.7em;
 			line-height:1.2em;
 		}
-
 		.button {
 			display:inline-block;
 			background: #969696;
@@ -59,13 +57,8 @@
 		<!--[if lt IE 7]>
 			<p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
 		<![endif]-->
-
 		<div id='wrapper' class="con">
-			<?php if (!isset($_GET['gkey'])): ?>
-
-			<h1>Google Sheets</h1>
-
-			<?php endif; ?>
+			<?php if (!isset($_GET['gkey'])): ?><h1>Google Sheets</h1><?php endif; ?>
 		</div>
 		<div class="con">
 			<?php
@@ -82,10 +75,8 @@
 			if (urlParams.gkey) {
 				// just the prototype
 				var gSheetData = new SheetServe(urlParams.gkey);
-				console.log(gSheetData);
 				var myGSheetData = gSheetData;
 				gSheetData.onload(function(){
-					console.log(myGSheetData);
 					myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function(d){
 						var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>';
 							projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',

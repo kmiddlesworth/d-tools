@@ -81,9 +81,12 @@
 			var urlParams = getUrlParams() || false;
 			if (urlParams.gkey) {
 				// just the prototype
-				var gSheetData = new sheetServe(urlParams.gkey);
+				var gSheetData = new SheetServe(urlParams.gkey);
+				console.log(gSheetData);
+				var myGSheetData = gSheetData;
 				gSheetData.onload(function(){
-					toFileWriter(gSheetData, gSheetData.meta.config.key, function(d){
+					console.log(myGSheetData);
+					myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function(d){
 						var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>';
 							projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',
 							phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php&quot;)) ?&gt;</pre>',

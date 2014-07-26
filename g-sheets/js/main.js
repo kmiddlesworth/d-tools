@@ -28,6 +28,23 @@ function grabThingAtAttr(start, path) {
 	}
 }
 
+function findRanges(myArray, range) {
+	var min,
+		max,
+		newArray = [];
+	// set and max vals
+	if (range.max === undefined) max = myArray.length;
+	else max = range.max;
+	if (range.min === undefined) min = 0;
+	else min = range.min;
+	if (range.max) {
+		for (var i = max; i >= min; i--) {
+			newArray(myArray[i]);
+		}
+	}
+	return newArray;
+}
+
 function flipArrToObj(attr, flipThis) {
 	// gather attributes (1st col)
 	var allAttrs = [],
@@ -56,7 +73,6 @@ function flipArrToObj(attr, flipThis) {
 		newTab[counter] = newObj[objNames];
 		counter++;
 	}
-	console.log(newTab);
 	return newTab;
 }
 
@@ -228,27 +244,10 @@ SheetServe.prototype.compilePartials = function(location) {
 	var scrape = location;
 	for (var tabName in location) {
 		for (var rows in location[tabName]) {
-			console.log(location[tabName][rows]);
 			finished = true;
 		}
 	}
-};
-SheetServe.prototype.copyObjects = function(location, theseAttrs) {
-	var allThings = location,
-		attrsLen = theseAttrs.length,
-		returnedObj = {};
-	if (attrsLen > 0) {
-		for (var i = attrsLen - 1; i >= 0; i--) {
-			if (allThings[theseAttrs[i]]) {
-				returnedObj[theseAttrs[i]] = allThings[theseAttrs[i]];
-			} else {
-				console.log(allThings[theseAttrs[i]]);
-			}
-		}
-	} else {
-		returnedObj = allThings;
-	}
-	return returnedObj;
+	return location;
 };
 SheetServe.prototype.ajaxGetter = function(url, eachCallback, finalCallback) {
 	var isArray = $.isArray(url);
@@ -279,10 +278,10 @@ SheetServe.prototype.removeAttrs = function(location, theseVals) {
 	return hereNow;
 };
 SheetServe.prototype.convertArrToObj = function(location, newAttr) {
-	var oldArr = location,
-		newObj = {};
-	for (var i = oldArr.length - 1; i >= 0; i--) {
-		newObj[oldArr[i][newAttr]] = oldArr[i];
+	var newObj = {};
+	console.log(location);
+	for (var i = location.length - 1; i >= 0; i--) {
+		newObj[location[i][newAttr]] = location[i];
 	}
 	return newObj;
 };
@@ -299,17 +298,75 @@ SheetServe.prototype.rowColFlipper = function(sheetLevel) {
 	}
 	return sheetLevel;
 };
+SheetServe.prototype.makeBasicSheets = function(d, sheetKey) {
+	var newArr = [],
+		partialsArr = [];
+	this.meta.sheetInfo = {};
+	// iterate through tabs
+	for (var i = 0, count = d.length; i < count; i++) {
+		var newObj = {};
+		// iterate through generated and user properties
+		for (var key in d[i]) {
+			var arrConverts = {};
+			var objKey = key.replace(this.meta.googlePrefix, ''),
+				objValue = d[i][key][this.meta.googleCellKey];
+			// if sheet attribute was made by user, put it into user sheets
+			if (key.indexOf(this.meta.googlePrefix) > -1) {
+				// if cell has a value, then set new object to that value
+				if (objValue !== "") {
+					arrConverts[objKey] = objValue;
+				}
+			} else {
+				this.meta.sheetInfo[objKey] = objValue;
+			}
+			$.extend(newObj, arrConverts);
+		}
+		newArr.push(newObj);
+	}
+	return newArr;
+};
+
+// accepts (as filters) both a filter or a range
+// with a filter, you can selectively find indexes of arrays as well object attributes
+// with a range, you can find any range of numbers
+// in an array's index and send in multiple ranges
+SheetServe.prototype.gimmeThese = function(location, filter) {
+	var allThings = location,
+		returnedObj;
+	if (filter.filter) {
+		var myscreen = filter.filter,
+			filterLen = myscreen.length - 1;
+		returnedObj = {};
+		if (filterLen > 0) {
+			for (var i = filterLen; i >= 0; i--) {
+				returnedObj[myscreen[i]] = allThings[myscreen[i]];
+			}
+		} else {
+			returnedObj[myscreen[0]] = allThings[myscreen[0]];
+		}
+	} else if (filter.range) {
+		returnedObj = [];
+		if (Array.isArray(filter.range)) {
+			for (var k = filter.range.length - 1; k >= 0; k--) {
+				returnedObj.concat(findRanges(allThings, filter.range[k]));
+			}
+		} else {
+			returnedObj = findRanges(allThings, filter.range);
+		}
+	}
+	return returnedObj;
+};
 SheetServe.prototype.onload = function(finished) {
 	$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
 		finished();
 	});
 	// if not connected to internet
+	var self = this;
 	if (!navigator.onLine) {
 		$.extend(this, JSON.parse(localStorage.getItem(this.key)));
 		$(window).trigger('sheetsLoaded.' + this.key);
 		return;
 	} else {
-		var self = this;
 		this.ajaxGetter(self.meta.sheetUrl, function(data) {
 			self.meta.title = data.feed.title.$t;
 			self.meta.timestamp = data.feed.updated.$t;
@@ -320,36 +377,38 @@ SheetServe.prototype.onload = function(finished) {
 					.replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 			}
 			self.ajaxGetter(tempArr, function(d) {
-				self.sheets[d.feed.title.$t] = self.makeArraysAndObjects(d.feed.entry, d.feed.title.$t);
+				self.sheets[d.feed.title.$t] = self.makeBasicSheets(d.feed.entry, d.feed.title.$t);
 			}, function() {
 				// move the config object to the meta object
-				self.meta.config = self.copyObjects(self.sheets.config[0], []);
-				// flipping any sheets that need to be flipped
+				self.meta["config"] = self.sheets.config[0];
+				// flip rows and cols
 				self.sheets = self.rowColFlipper(self.sheets);
 				// get partial names,
 				var partialsToDelete = self.getPartialTabNames(self.sheets);
 				// copy the partials into a special sheet
-				self.sheets.partials = self.copyObjects(self.sheets, partialsToDelete);
+				self.partials = self.gimmeThese(self.sheets, {
+					filter: partialsToDelete
+				});
 				// add config object to delete with partialsToDelete
 				partialsToDelete.push("config");
-				// remove everything that has been copied so that you do not
+				// remove everything that has been copied so that you do not overwork the object
 				self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
 				// convert the partials from their rows to objects themselves
-				for (var sheetName in self.sheets.partials) {
-					self.sheets.partials[sheetName] = self.convertArrToObj(self.sheets.partials[sheetName], "partialid");
+				for (var sheetName in self.partials) {
+					self.partials[sheetName] = self.convertArrToObj(self.partials[sheetName], "partialid");
 				}
 				// get rid of the partialid attribute used to create the partials
-				for (sheetName in self.sheets.partials) {
-					for (var innerSheetName in self.sheets.partials[sheetName]) {
-						self.sheets.partials[sheetName][innerSheetName] = self.removeAttrs(self.sheets.partials[sheetName][innerSheetName], ["partialid"]);
+				for (var sName in self.partials) {
+					for (var innerSName in self.partials[sName]) {
+						self.partials[sName][innerSName] = self.removeAttrs(self.partials[sName][innerSName], ["partialid"]);
 					}
 				}
 				// compile partials and return the new object
-				self.sheets.partials = self.compilePartials(self.sheets.partials);
-				$(window).trigger('sheetsLoaded.' + self.key);
+				self.partials = self.compilePartials(self.partials);
+				$(window).trigger('sheetsLoaded.');
 			});
 		});
 	}
-	console.log(this);
+	console.log(self);
 	return;
 };

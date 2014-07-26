@@ -73,7 +73,6 @@
 		<script>
 			var urlParams = getUrlParams() || false;
 			if (urlParams.gkey) {
-				// just the prototype
 				var gSheetData = new SheetServe(urlParams.gkey);
 				var myGSheetData = gSheetData;
 				gSheetData.onload(function(){

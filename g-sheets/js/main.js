@@ -15,20 +15,60 @@ function getUrlParams() {
 	}
 }
 
-function burrow(start, attrs) {
-	// burrow down through object
-	console.log(start);
-	console.log(attrs);
-	var nextLevel = start,
-		attrLen = attrs.length - 1;
-	for (var i = 0; i < attrLen; i++) {
-		if (nextLevel[attrs[i]] === undefined) {
-			nextLevel[attrs[i]] = {};
-		} else {
-			nextLevel = start[attrs[i]];
+function grabThingAtAttr(start, path) {
+	var nextLevel = start;
+	for (var i = 0, pathLen = path.length; i < pathLen; i++) {
+		nextLevel = nextLevel[path[i]];
+	}
+	if (nextLevel) {
+		return nextLevel;
+	} else {
+		nextLevel = "nothing exists here";
+		return nextLevel;
+	}
+}
+
+function flipArrToObj(attr, flipThis) {
+	// gather attributes (1st col)
+	var allAttrs = [],
+		newTab = [];
+	for (var i = flipThis.length - 1; i >= 0; i--) {
+		allAttrs.push(flipThis[i][attr]);
+	}
+	// set colnames as emtpy objects (top row)
+	var newObj = {};
+	for (var j = flipThis.length - 1; j >= 0; j--) {
+		for (var attrName in flipThis[j]) {
+			if (attrName != attr) {
+				newObj[attrName] = {};
+			}
 		}
 	}
-	return nextLevel;
+	// flip everything
+	for (var colName in newObj) {
+		for (var k = allAttrs.length - 1; k >= 0; k--) {
+			newObj[colName][flipThis[k][attr]] = flipThis[k][colName];
+		}
+	}
+	// make pages nameless
+	counter = 0;
+	for (var objNames in newObj) {
+		newTab[counter] = newObj[objNames];
+		counter++;
+	}
+	console.log(newTab);
+	return newTab;
+}
+
+function getObjsTwoLayersDown(start) {
+	var newObj = {};
+	for (var tabName in start) {
+		for (var rows in start[tabName]) {
+			newObj[rows] = start[tabName][rows];
+		}
+	}
+	console.log(newObj);
+	return newObj;
 }
 var SheetServe = function sheetServe(keyStr) {
 	this["meta"] = {};
@@ -44,7 +84,7 @@ var SheetServe = function sheetServe(keyStr) {
 	this["meta"]["partialsGrouped"] = false;
 	return this;
 };
-SheetServe.prototype.toFileWriter = function toFileWriter(obj, fileName, callback) {
+SheetServe.prototype.toFileWriter = function(obj, fileName, callback) {
 	var selfie = this;
 	$.ajax({
 		url: 'buildjson.php',
@@ -55,27 +95,14 @@ SheetServe.prototype.toFileWriter = function toFileWriter(obj, fileName, callbac
 			// send the key along side it
 			key: obj.meta.key
 		},
-		success: function (data) {
+		success: function(data) {
 			obj.meta.loaded = true;
 			if (callback) callback(data);
 		},
-		error: function (jqXHR, textStatus, error) {}
+		error: function(jqXHR, textStatus, error) {}
 	});
 };
-SheetServe.prototype.copyObjects = function copyObjects(locations, theseAttrs) {
-	var moveThis = burrow(this[locations.from], theseAttrs),
-		toHere = burrow(this[locations.to], theseAttrs);
-	console.log(toHere);
-	console.log(moveThis);
-	console.log(locations);
-	if (moveThis.length == 1) {
-		this[locations.to][theseAttrs] = moveThis[0];
-	} else {
-		this[locations.to][theseAttrs] = moveThis;
-	}
-	return this.meta[theseAttrs];
-};
-SheetServe.prototype.deletePartials = function () {
+SheetServe.prototype.deletePartials = function() {
 	var allPs = [];
 	for (var pName in this.sheets) {
 		if (pName.indexOf(this.meta.partialStr) > -1) {
@@ -84,7 +111,7 @@ SheetServe.prototype.deletePartials = function () {
 	}
 	return allPs;
 };
-SheetServe.prototype.groupPartials = function groupPartials() {
+SheetServe.prototype.groupPartials = function() {
 	var allPartials = {};
 	for (var sheet in this.sheets) {
 		if (sheet.indexOf(this.meta.partialStr) > -1) {
@@ -95,26 +122,17 @@ SheetServe.prototype.groupPartials = function groupPartials() {
 	this["meta"]["partialsGrouped"] = true;
 	return allPartials;
 };
-SheetServe.prototype.newSheet = function newSheet(id, pObj) {
-	this.sheets[id] = pObj;
-	return this.sheets[id];
-};
-SheetServe.prototype.getPartialTabNames = function getPartialTabNames() {
+SheetServe.prototype.getPartialTabNames = function(path) {
 	var pNames = [];
-	if (this["meta"]["partialsGrouped"]) {
-		console.log('this["meta"]["partialsGrouped"] == true');
-		for (var pName1 in this.sheets.partials) {
-			pNames.push(pName1);
-		}
-	} else {
-		var allPartials = this.groupPartials();
-		for (var pName2 in allPartials) {
-			pNames.push(pName2);
+	var checkThisObj = path;
+	for (var sheetName in checkThisObj) {
+		if (sheetName.indexOf(this.meta.partialStr) > -1) {
+			pNames.push(sheetName);
 		}
 	}
 	return pNames;
 };
-SheetServe.prototype.injectPartial = function injectPartial(sheetName, thisTab, thisRow) {
+SheetServe.prototype.injectPartial = function(sheetName, thisTab, thisRow) {
 	var tempArr = this.getPartialTabNames(),
 		foundIt = false;
 	for (var tabNum = 0;
@@ -130,7 +148,7 @@ SheetServe.prototype.injectPartial = function injectPartial(sheetName, thisTab, 
 	}
 	return foundIt;
 };
-SheetServe.prototype.cleanPartialIds = function (pIdArr) {
+SheetServe.prototype.cleanPartialIds = function(pIdArr) {
 	for (var i = pIdArr.length - 1; i >= 0; i--) {
 		var arrOfObjNames = this.sheets.partials[pIdArr[i]];
 		for (var tabName in this.sheets) {
@@ -140,7 +158,7 @@ SheetServe.prototype.cleanPartialIds = function (pIdArr) {
 		}
 	}
 };
-SheetServe.prototype.injectPartials = function (key, d) {
+SheetServe.prototype.injectPartials = function(key, d) {
 	// grab all of the partial tabs and put them into a variable
 	this.getPartialTabNames();
 	for (var sheetName in this.sheets) {
@@ -169,7 +187,7 @@ SheetServe.prototype.injectPartials = function (key, d) {
 	this.meta.addPartials = true;
 	return this;
 };
-SheetServe.prototype.makeArraysAndObjects = function makeArraysAndObjects(d, sheetKey) {
+SheetServe.prototype.makeArraysAndObjects = function(d, sheetKey) {
 	var newArr = [],
 		partialsArr = [];
 	// for each row...
@@ -206,32 +224,83 @@ SheetServe.prototype.makeArraysAndObjects = function makeArraysAndObjects(d, she
 	}
 	return newArr;
 };
-SheetServe.prototype.removeAttrs = function removeAttrs(location, theseVals) {
-	var hereNow = burrow(this, location);
-	for (var i = theseVals.length - 1; i >= 0; i--) {
-		delete hereNow[theseVals[i]];
+SheetServe.prototype.compilePartials = function(location) {
+	var scrape = location;
+	for (var tabName in location) {
+		for (var rows in location[tabName]) {
+			console.log(location[tabName][rows]);
+			finished = true;
+		}
 	}
-	console.log(this);
 };
-SheetServe.prototype.ajaxGetter = function ajaxGetter(url, eachCallback, finalCallback) {
+SheetServe.prototype.copyObjects = function(location, theseAttrs) {
+	var allThings = location,
+		attrsLen = theseAttrs.length,
+		returnedObj = {};
+	if (attrsLen > 0) {
+		for (var i = attrsLen - 1; i >= 0; i--) {
+			if (allThings[theseAttrs[i]]) {
+				returnedObj[theseAttrs[i]] = allThings[theseAttrs[i]];
+			} else {
+				console.log(allThings[theseAttrs[i]]);
+			}
+		}
+	} else {
+		returnedObj = allThings;
+	}
+	return returnedObj;
+};
+SheetServe.prototype.ajaxGetter = function(url, eachCallback, finalCallback) {
 	var isArray = $.isArray(url);
 	if (!isArray) url = [url];
 	var totalCount = url.length,
 		currentCount = 0;
-	var ajaxArr = $.map(url, function (item, i) {
+	var ajaxArr = $.map(url, function(item, i) {
 		var nonce = (url[i].indexOf('?') == -1) ? '?nonce=' : '&nonce=';
-		return $.getJSON(url[i] + nonce + Date.now(), function (d) {
+		return $.getJSON(url[i] + nonce + Date.now(), function(d) {
 			eachCallback(d);
 		});
 	});
-	$.when.apply(this, ajaxArr).then(function () {
+	$.when.apply(this, ajaxArr).then(function() {
 		if (finalCallback) finalCallback();
-	}).fail(function () {
+	}).fail(function() {
 		console.log('failed');
 	});
 };
-SheetServe.prototype.onload = function onload(finished) {
-	$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function (e) {
+SheetServe.prototype.removeAttrs = function(location, theseVals) {
+	var hereNow = location;
+	if (Array.isArray(theseVals)) {
+		for (var i = theseVals.length - 1; i >= 0; i--) {
+			delete hereNow[theseVals[i]];
+		}
+	} else {
+		console.log("please pass in an array to the removeAttrs function");
+	}
+	return hereNow;
+};
+SheetServe.prototype.convertArrToObj = function(location, newAttr) {
+	var oldArr = location,
+		newObj = {};
+	for (var i = oldArr.length - 1; i >= 0; i--) {
+		newObj[oldArr[i][newAttr]] = oldArr[i];
+	}
+	return newObj;
+};
+SheetServe.prototype.rowColFlipper = function(sheetLevel) {
+	var flipArr = this.meta.config.tabstoflip.split(" ");
+	for (var sheetName in sheetLevel) {
+		tempTab = sheetLevel[sheetName];
+		for (var i = flipArr.length - 1; i >= 0; i--) {
+			if (sheetName == flipArr[i]) {
+				tempTab = flipArrToObj(this.meta.config.flipattr, tempTab);
+			}
+		}
+		sheetLevel[sheetName] = tempTab;
+	}
+	return sheetLevel;
+};
+SheetServe.prototype.onload = function(finished) {
+	$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
 		finished();
 	});
 	// if not connected to internet
@@ -241,7 +310,7 @@ SheetServe.prototype.onload = function onload(finished) {
 		return;
 	} else {
 		var self = this;
-		this.ajaxGetter(self.meta.sheetUrl, function (data) {
+		this.ajaxGetter(self.meta.sheetUrl, function(data) {
 			self.meta.title = data.feed.title.$t;
 			self.meta.timestamp = data.feed.updated.$t;
 			var tempArr = [];
@@ -250,29 +319,33 @@ SheetServe.prototype.onload = function onload(finished) {
 					.replace('/worksheets/', '/list/')
 					.replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 			}
-			self.ajaxGetter(tempArr, function (d) {
+			self.ajaxGetter(tempArr, function(d) {
 				self.sheets[d.feed.title.$t] = self.makeArraysAndObjects(d.feed.entry, d.feed.title.$t);
-			}, function () {
-				// injects partials into respective places
-				// copy the config object into the meta object
-				self.copyObjects({
-					from: ["sheets"],
-					to: ["meta"]
-				}, ["config"]);
-				// remove config from sheets
-				self.removeAttrs(["sheets"], ["config"]);
-				var allPartialNames = self.getPartialTabNames();
-				self.copyObjects({
-					from: ["sheets"],
-					to: ["sheets", "partials"]
-				}, allPartialNames);
-				// var groupedPartials = self.groupPartials();
-				// self.newSheet("partials", groupedPartials);
-				var arrayOfPartialNames = self.getPartialTabNames();
-				self.removeAttrs(["sheets"], arrayOfPartialNames);
-				console.log(arrayOfPartialNames);
-				self.injectPartials();
-				self.cleanPartialIds(arrayOfPartialNames);
+			}, function() {
+				// move the config object to the meta object
+				self.meta.config = self.copyObjects(self.sheets.config[0], []);
+				// flipping any sheets that need to be flipped
+				self.sheets = self.rowColFlipper(self.sheets);
+				// get partial names,
+				var partialsToDelete = self.getPartialTabNames(self.sheets);
+				// copy the partials into a special sheet
+				self.sheets.partials = self.copyObjects(self.sheets, partialsToDelete);
+				// add config object to delete with partialsToDelete
+				partialsToDelete.push("config");
+				// remove everything that has been copied so that you do not
+				self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
+				// convert the partials from their rows to objects themselves
+				for (var sheetName in self.sheets.partials) {
+					self.sheets.partials[sheetName] = self.convertArrToObj(self.sheets.partials[sheetName], "partialid");
+				}
+				// get rid of the partialid attribute used to create the partials
+				for (sheetName in self.sheets.partials) {
+					for (var innerSheetName in self.sheets.partials[sheetName]) {
+						self.sheets.partials[sheetName][innerSheetName] = self.removeAttrs(self.sheets.partials[sheetName][innerSheetName], ["partialid"]);
+					}
+				}
+				// compile partials and return the new object
+				self.sheets.partials = self.compilePartials(self.sheets.partials);
 				$(window).trigger('sheetsLoaded.' + self.key);
 			});
 		});

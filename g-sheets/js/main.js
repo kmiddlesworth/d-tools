@@ -15,6 +15,21 @@ function getUrlParams() {
 	}
 }
 
+function burrow(start, attrs) {
+	// burrow down through object
+	console.log(start);
+	console.log(attrs);
+	var nextLevel = start,
+		attrLen = attrs.length - 1;
+	for (var i = 0; i < attrLen; i++) {
+		if (nextLevel[attrs[i]] === undefined) {
+			nextLevel[attrs[i]] = {};
+		} else {
+			nextLevel = start[attrs[i]];
+		}
+	}
+	return nextLevel;
+}
 var SheetServe = function sheetServe(keyStr) {
 	this["meta"] = {};
 	this["sheets"] = {};
@@ -40,36 +55,35 @@ SheetServe.prototype.toFileWriter = function toFileWriter(obj, fileName, callbac
 			// send the key along side it
 			key: obj.meta.key
 		},
-		success: function(data) {
+		success: function (data) {
 			obj.meta.loaded = true;
 			if (callback) callback(data);
 		},
-		error: function(jqXHR, textStatus, error) {}
+		error: function (jqXHR, textStatus, error) {}
 	});
 };
-
-SheetServe.prototype.moveFromSheetsToMeta = function moveFromSheetsToMeta(thisObj) {
-	this.meta[thisObj] = this.sheets[thisObj][0];
-	delete this.sheets[thisObj];
-	return this.meta[thisObj];
+SheetServe.prototype.copyObjects = function copyObjects(locations, theseAttrs) {
+	var moveThis = burrow(this[locations.from], theseAttrs),
+		toHere = burrow(this[locations.to], theseAttrs);
+	console.log(toHere);
+	console.log(moveThis);
+	console.log(locations);
+	if (moveThis.length == 1) {
+		this[locations.to][theseAttrs] = moveThis[0];
+	} else {
+		this[locations.to][theseAttrs] = moveThis;
+	}
+	return this.meta[theseAttrs];
 };
-
-SheetServe.prototype.deletePartials = function() {
+SheetServe.prototype.deletePartials = function () {
 	var allPs = [];
 	for (var pName in this.sheets) {
 		if (pName.indexOf(this.meta.partialStr) > -1) {
 			allPs[pName] = this.sheets[pName];
-			delete this.sheets[pName];
 		}
 	}
 	return allPs;
 };
-SheetServe.prototype.findInnerPartials = function findInnerPartials(partialRow) {
-	for (var partialName in partialRow) {
-		if (partialName.indexOf(this.meta.partialStr) > -1) {}
-	}
-};
-
 SheetServe.prototype.groupPartials = function groupPartials() {
 	var allPartials = {};
 	for (var sheet in this.sheets) {
@@ -77,19 +91,28 @@ SheetServe.prototype.groupPartials = function groupPartials() {
 			allPartials[sheet] = this.sheets[sheet];
 		}
 	}
-	this.sheets.partials = allPartials;
+	// this.sheets.partials = allPartials;
 	this["meta"]["partialsGrouped"] = true;
-	this.deletePartials();
 	return allPartials;
 };
+SheetServe.prototype.newSheet = function newSheet(id, pObj) {
+	this.sheets[id] = pObj;
+	return this.sheets[id];
+};
 SheetServe.prototype.getPartialTabNames = function getPartialTabNames() {
-	var allPartials = [];
+	var pNames = [];
 	if (this["meta"]["partialsGrouped"]) {
-		for (var pName in this.sheets.partials) {
-			allPartials.push(pName);
+		console.log('this["meta"]["partialsGrouped"] == true');
+		for (var pName1 in this.sheets.partials) {
+			pNames.push(pName1);
+		}
+	} else {
+		var allPartials = this.groupPartials();
+		for (var pName2 in allPartials) {
+			pNames.push(pName2);
 		}
 	}
-	return allPartials;
+	return pNames;
 };
 SheetServe.prototype.injectPartial = function injectPartial(sheetName, thisTab, thisRow) {
 	var tempArr = this.getPartialTabNames(),
@@ -107,16 +130,19 @@ SheetServe.prototype.injectPartial = function injectPartial(sheetName, thisTab, 
 	}
 	return foundIt;
 };
-
-SheetServe.prototype.injectPartials = function(key, d) {
-	// grab all of the partial tabs and put them into a variable
-	this.getPartialTabNames();
-
-	for (var partial in this.sheets.partials) {
-		for (var i = this.sheets.partials[partial].length - 1; i >= 0; i--) {
-			this.findInnerPartials(this.sheets.partials[partial][i]);
+SheetServe.prototype.cleanPartialIds = function (pIdArr) {
+	for (var i = pIdArr.length - 1; i >= 0; i--) {
+		var arrOfObjNames = this.sheets.partials[pIdArr[i]];
+		for (var tabName in this.sheets) {
+			if (tabName !== "partials") {
+				for (var j = this["sheets"][tabName].length - 1; j >= 0; j--) {}
+			}
 		}
 	}
+};
+SheetServe.prototype.injectPartials = function (key, d) {
+	// grab all of the partial tabs and put them into a variable
+	this.getPartialTabNames();
 	for (var sheetName in this.sheets) {
 		// iterates through each tab, storing it in a variable
 		var tab = this.sheets[sheetName];
@@ -136,7 +162,6 @@ SheetServe.prototype.injectPartials = function(key, d) {
 					} else {
 						this.sheets[sheetName][row][cell] = this.injectPartial(sheetName, column, cell);
 					}
-					delete tab[row][column];
 				}
 			}
 		}
@@ -176,33 +201,37 @@ SheetServe.prototype.makeArraysAndObjects = function makeArraysAndObjects(d, she
 				}
 			}
 		}
-		console.log(newObj);
 		$.extend(newObj, arrConverts);
 		newArr.push(newObj);
 	}
 	return newArr;
 };
-
+SheetServe.prototype.removeAttrs = function removeAttrs(location, theseVals) {
+	var hereNow = burrow(this, location);
+	for (var i = theseVals.length - 1; i >= 0; i--) {
+		delete hereNow[theseVals[i]];
+	}
+	console.log(this);
+};
 SheetServe.prototype.ajaxGetter = function ajaxGetter(url, eachCallback, finalCallback) {
 	var isArray = $.isArray(url);
 	if (!isArray) url = [url];
 	var totalCount = url.length,
 		currentCount = 0;
-	var ajaxArr = $.map(url, function(item, i) {
+	var ajaxArr = $.map(url, function (item, i) {
 		var nonce = (url[i].indexOf('?') == -1) ? '?nonce=' : '&nonce=';
-		return $.getJSON(url[i] + nonce + Date.now(), function(d) {
+		return $.getJSON(url[i] + nonce + Date.now(), function (d) {
 			eachCallback(d);
 		});
 	});
-	$.when.apply(this, ajaxArr).then(function() {
+	$.when.apply(this, ajaxArr).then(function () {
 		if (finalCallback) finalCallback();
-	}).fail(function() {
+	}).fail(function () {
 		console.log('failed');
 	});
 };
-
 SheetServe.prototype.onload = function onload(finished) {
-	$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
+	$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function (e) {
 		finished();
 	});
 	// if not connected to internet
@@ -212,7 +241,7 @@ SheetServe.prototype.onload = function onload(finished) {
 		return;
 	} else {
 		var self = this;
-		this.ajaxGetter(self.meta.sheetUrl, function(data) {
+		this.ajaxGetter(self.meta.sheetUrl, function (data) {
 			self.meta.title = data.feed.title.$t;
 			self.meta.timestamp = data.feed.updated.$t;
 			var tempArr = [];
@@ -221,13 +250,29 @@ SheetServe.prototype.onload = function onload(finished) {
 					.replace('/worksheets/', '/list/')
 					.replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 			}
-			self.ajaxGetter(tempArr, function(d) {
+			self.ajaxGetter(tempArr, function (d) {
 				self.sheets[d.feed.title.$t] = self.makeArraysAndObjects(d.feed.entry, d.feed.title.$t);
-			}, function() {
+			}, function () {
 				// injects partials into respective places
-				self.groupPartials();
-				self.moveFromSheetsToMeta("config");
+				// copy the config object into the meta object
+				self.copyObjects({
+					from: ["sheets"],
+					to: ["meta"]
+				}, ["config"]);
+				// remove config from sheets
+				self.removeAttrs(["sheets"], ["config"]);
+				var allPartialNames = self.getPartialTabNames();
+				self.copyObjects({
+					from: ["sheets"],
+					to: ["sheets", "partials"]
+				}, allPartialNames);
+				// var groupedPartials = self.groupPartials();
+				// self.newSheet("partials", groupedPartials);
+				var arrayOfPartialNames = self.getPartialTabNames();
+				self.removeAttrs(["sheets"], arrayOfPartialNames);
+				console.log(arrayOfPartialNames);
 				self.injectPartials();
+				self.cleanPartialIds(arrayOfPartialNames);
 				$(window).trigger('sheetsLoaded.' + self.key);
 			});
 		});

@@ -126,15 +126,6 @@ document.body.onload = (function() {
 		};
 	}
 
-	function pullObjsUp(start) {
-		var newObj = [];
-		for (var tName in start) {
-			for (var rows in start[tName]) {
-				newObj.push(start[tName][rows]);
-			}
-		}
-		return newObj;
-	}
 	var SheetServe = function sheetServe(keyStr) {
 		this["meta"] = {};
 		this["sheets"] = {};
@@ -169,8 +160,8 @@ document.body.onload = (function() {
 		});
 	};
 	SheetServe.prototype.getPartialTabNames = function(path) {
-		var pNames = [];
-		var checkThisObj = path;
+		var pNames = [],
+			checkThisObj = path;
 		for (var sheetName in checkThisObj) {
 			if (sheetName.indexOf(this.meta.partialStr) > -1) {
 				pNames.push(sheetName);
@@ -306,7 +297,6 @@ document.body.onload = (function() {
 		} else {
 			console.log("please pass in an array to the removeAttrs function");
 		}
-		console.log(hereNow);
 		return hereNow;
 	};
 	SheetServe.prototype.convertArrToObj = function(location, newAttr) {
@@ -345,6 +335,20 @@ document.body.onload = (function() {
 	/*
 	function partialSniffer (thisObj, stringList) {
 		var path = [];
+		function findMatchingPartial(cellStr, colStr){
+			for (var i = thisObj.length - 1; i >= 0; i--) {
+				if (thisObj.meta[partialid] === cellStr && colStr === thisObj.meta[parentStr]) {};
+			}
+		}
+		function returnStrObj (thisString, cellString, colString) {
+			if (thisString === cellString){
+				return findMatchingPartial(cellString, colString);
+			} else {
+				return thisString;
+			}
+		}
+		for(var col in thisRow){
+		}
 		function typeCheck (unkType, path) {
 			if (Array.isArray(unkType)) {
 				arrayBurrow (unkType, allPartials);
@@ -353,6 +357,7 @@ document.body.onload = (function() {
 				(typeof === 'boolean' && party.string)) {
 					check if string matches a partial
 					injectPartialQuery(unkType);
+
 					i = stringList.length
 			} else if (party.object) {
 				objectBurrow (unkType, party.object);
@@ -423,6 +428,45 @@ document.body.onload = (function() {
 		}
 		return returnedObj;
 	};
+
+	function divideParallel(start, location, attrs) {
+		var startLen = start[location.from].length;
+		if (!start[location.to]) {
+			start[location.to] = nuA(startLen);
+		}
+		var i = startLen;
+		while (i--) {
+			var tempObj = {};
+			for (var copyAttrs in attrs) {
+				tempObj[copyAttrs] = start[location.from][i][attrs[copyAttrs]];
+				delete start[location.from][i][attrs[copyAttrs]];
+			}
+			start[location.to][i] = tempObj;
+		}
+	}
+
+	function pullObjsUp(start, newAttr) {
+		var newObj = [],
+			partialList = [];
+		for (var colNam in start) {
+			partialList.push(colNam);
+		}
+		for (var tName in start) {
+			if (tName !== "sheets" && tName !== "meta") {
+				for (var rows in start[tName]) {
+					var thisRow = start[tName][rows];
+					thisRow[newAttr.parentLink] = tName;
+					newObj.push(thisRow);
+				}
+				delete start[tName];
+			}
+		}
+		return newObj;
+	}
+
+	function concatPartials(start) {
+		// console.log(start);
+	}
 	SheetServe.prototype.onload = function(finished) {
 		var configStr = this["meta"]["configStr"];
 		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
@@ -459,23 +503,33 @@ document.body.onload = (function() {
 					self.partials = self.gimmeThese(self.sheets, {
 						filter: partialsToDelete
 					});
-					console.log(pullObjsUp(self.partials));
+					var metaTags = {
+						parentLink: "parentpartial",
+						cellLink: "partialid"
+					};
+					self.partials.sheets = pullObjsUp(self.partials, metaTags);
+					divideParallel(self.partials, {
+						from: "sheets",
+						to: "meta"
+					}, metaTags);
+					concatPartials(self.partials);
+
 					// add config object to delete with partialsToDelete
 					partialsToDelete.push(configStr);
 					// remove everything that has been copied so that you do not overwork the object
 					self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
 					// convert the partials from their rows to objects themselves
-					for (var sheetName in self.partials) {
-						self.partials[sheetName] = self.convertArrToObj(self.partials[sheetName], "partialid");
-					}
+					// for (var sheetName in self.partials) {
+					// 	self.partials[sheetName] = self.convertArrToObj(self.partials[sheetName], "partialid");
+					// }
 					// get rid of the partialid attribute used to create the partials
-					for (var sName in self.partials) {
-						for (var innerSName in self.partials[sName]) {
-							self.partials[sName][innerSName] = self.removeAttrs(self.partials[sName][innerSName], ["partialid"]);
-						}
-					}
+					// for (var sName in self.partials) {
+					// 	for (var innerSName in self.partials[sName]) {
+					// 		self.partials[sName][innerSName] = self.removeAttrs(self.partials[sName][innerSName], ["partialid"]);
+					// 	}
+					// }
 					// compile partials and return the new object
-					self.partials = self.compilePartials(self.partials);
+					// self.partials = self.compilePartials(self.partials);
 					$(window).trigger('sheetsLoaded.');
 				});
 			});
@@ -489,6 +543,8 @@ document.body.onload = (function() {
 		var gSheetData = new SheetServe(urlParams.gkey),
 			myGSheetData = gSheetData;
 		gSheetData.onload(function() {
+			// change this so user can input a value from an input box
+			// ... for the link so we can host on different computers and have it run through exactly the same way
 			myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function(d) {
 				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>',
 					projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',

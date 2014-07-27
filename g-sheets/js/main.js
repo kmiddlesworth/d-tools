@@ -19,7 +19,7 @@ document.body.onload = (function() {
 		}
 	}
 
-	function grabThingAtAttr(start, path) {
+	function grabThingAtPath(start, path) {
 		var nextLevel = start;
 		for (var i = 0, pathLen = path.length; i < pathLen; i++) {
 			nextLevel = nextLevel[path[i]];
@@ -110,7 +110,7 @@ document.body.onload = (function() {
 		return newTab;
 	}
 	// inverts columns and rows for any given location
-	// axis should be the upper left corner of the sheet
+	// axis should be the upper left corner of the tab
 	function rowColFlipper(axis) {
 		return function(flipThese, location) {
 			var flipArr = flipThese.split(" ");
@@ -126,14 +126,13 @@ document.body.onload = (function() {
 		};
 	}
 
-	function getObjsTwoLayersDown(start) {
-		var newObj = {};
-		for (var tabName in start) {
-			for (var rows in start[tabName]) {
-				newObj[rows] = start[tabName][rows];
+	function pullObjsUp(start) {
+		var newObj = [];
+		for (var tName in start) {
+			for (var rows in start[tName]) {
+				newObj.push(start[tName][rows]);
 			}
 		}
-		console.log(newObj);
 		return newObj;
 	}
 	var SheetServe = function sheetServe(keyStr) {
@@ -168,26 +167,6 @@ document.body.onload = (function() {
 			},
 			error: function(jqXHR, textStatus, error) {}
 		});
-	};
-	SheetServe.prototype.deletePartials = function() {
-		var allPs = [];
-		for (var pName in this.sheets) {
-			if (pName.indexOf(this.meta.partialStr) > -1) {
-				allPs[pName] = this.sheets[pName];
-			}
-		}
-		return allPs;
-	};
-	SheetServe.prototype.groupPartials = function() {
-		var allPartials = {};
-		for (var sheet in this.sheets) {
-			if (sheet.indexOf(this.meta.partialStr) > -1) {
-				allPartials[sheet] = this.sheets[sheet];
-			}
-		}
-		// this.sheets.partials = allPartials;
-		this["meta"]["partialsGrouped"] = true;
-		return allPartials;
 	};
 	SheetServe.prototype.getPartialTabNames = function(path) {
 		var pNames = [];
@@ -327,6 +306,7 @@ document.body.onload = (function() {
 		} else {
 			console.log("please pass in an array to the removeAttrs function");
 		}
+		console.log(hereNow);
 		return hereNow;
 	};
 	SheetServe.prototype.convertArrToObj = function(location, newAttr) {
@@ -362,10 +342,61 @@ document.body.onload = (function() {
 		return newArr;
 	};
 
-	// accepts (as filters) both a filter or a range
+	/*
+	function partialSniffer (thisObj, stringList) {
+		var path = [];
+		function typeCheck (unkType, path) {
+			if (Array.isArray(unkType)) {
+				arrayBurrow (unkType, allPartials);
+			} else if ((typeof unkType === 'string' && party.string) ||
+				!isNaN(unkType) ||
+				(typeof === 'boolean' && party.string)) {
+					check if string matches a partial
+					injectPartialQuery(unkType);
+					i = stringList.length
+			} else if (party.object) {
+				objectBurrow (unkType, party.object);
+			}
+		}
+		function arrayBurrow (myArray) {
+			var plLen = myArray.length;
+			while (plLen--) {
+				typeCheck(myArray[plLen]);
+			}
+		}
+		function objectBurrow (myObj) {
+			for (var attr in myObj) {
+				typeCheck(myObj[attr]);
+			}
+		}
+		function objArrEqualizer (location, layers) {
+			var allPartials = [];
+			for (var partialName in location) {
+				typeCheck(location[partialList], allPartials);
+			}
+			return allPartials;
+		}
+		for (var i = stringList.length - 1; i >= 0; i--) {
+			for in loop iterating over columns {
+				if a match to a partial is found
+					if value is a string
+						replace it with an object
+					else if value is not a string
+						recursively call this function, passing in the object to check for more partials
+						typeCheck(thisObj, stringList)
+						i = stringList.length
+				if match to a partial is not found, continue
+			}
+		}
+		return thisObj
+	}
+	*/
+
+	// accepts (as filters) a filter or a range
 	// with a filter, you can selectively find indexes of arrays as well object attributes
 	// with a range, you can find any range of numbers
 	// in an array's index and send in multiple ranges
+	// filter will return an object, while a range will always return an array
 	SheetServe.prototype.gimmeThese = function(location, filter) {
 		var allThings = location,
 			returnedObj;
@@ -393,6 +424,7 @@ document.body.onload = (function() {
 		return returnedObj;
 	};
 	SheetServe.prototype.onload = function(finished) {
+		var configStr = this["meta"]["configStr"];
 		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
 			finished();
 		});
@@ -416,19 +448,20 @@ document.body.onload = (function() {
 					self.sheets[d.feed.title.$t] = self.makeBasicSheets(d.feed.entry, d.feed.title.$t);
 				}, function() {
 					// move the config object to the meta object
-					self.meta["config"] = self.sheets.config[0];
+					self.meta[configStr] = self.sheets[configStr][0];
 					// after the attribute has been set, you can call the function returned anywhere
-					var flipTabs = rowColFlipper(self.meta.config.flipattr);
+					var flipTabs = rowColFlipper(self.meta[configStr].flipattr);
 					// like here
-					flipTabs(self.meta.config.tabstoflip, self.sheets);
+					flipTabs(self.meta[configStr].verticaltabs, self.sheets);
 					// get partial names,
 					var partialsToDelete = self.getPartialTabNames(self.sheets);
 					// copy the partials into a special sheet
 					self.partials = self.gimmeThese(self.sheets, {
 						filter: partialsToDelete
 					});
+					console.log(pullObjsUp(self.partials));
 					// add config object to delete with partialsToDelete
-					partialsToDelete.push("config");
+					partialsToDelete.push(configStr);
 					// remove everything that has been copied so that you do not overwork the object
 					self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
 					// convert the partials from their rows to objects themselves

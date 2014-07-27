@@ -1,3 +1,4 @@
+var globalVar;
 document.body.onload = (function() {
 	"use strict";
 
@@ -49,48 +50,63 @@ document.body.onload = (function() {
 	}
 
 	function nuA(num) {
-		return new Array(num);
+		var variable = new Array(num);
+		return variable;
 	}
 
-	function flipArray(axis, flipThis) {
-		// count future pages
-		var pageCount = 0;
+	function flipMatrix(axis, flipThis) {
+		var newTab = flipThis,
+			colCount = 0,
+			continueFlip = false;
+		// anticipate goodie bags needed
 		for (var attrs in flipThis[0]) {
-			pageCount++;
+			// and make sure there is at least one super special goodie
+			if (attrs === axis) continueFlip = true;
+			else colCount++;
 		}
-		// gather attributes (1st col)
-		var flipLen = flipThis.length,
-			allAttrs = nuA(flipLen),
-			newAttrs = nuA(1),
-			newTab = nuA(pageCount),
-			allData = nuA(pageCount - 1);
-		// create column arrays
-		var outerCounter = pageCount;
-		for (var columns in flipThis[0]) {
-			var tempArr = nuA(flipLen);
-			var iterator = flipLen;
-			while (iterator--) {
-				tempArr[iterator] = flipThis[iterator][columns];
-			}
-			tempArr.push(columns);
-			if (columns === axis) newAttrs[0] = tempArr;
-			else allData[(outerCounter - 1)] = tempArr;
-			outerCounter--;
-		}
-		// iterate through each row
-
-		for (var i = allData.length - 1; i >= 0; i--) {
-			var newRow = {},
-				dataLen = allData[i].length;
-			for (var access = dataLen; access >= 0; access--) {
-				if (access === dataLen) {
-					newRow[axis] = allData[i][access];
-				} else {
-					newRow[newAttrs[0][access]] = allData[i][access];
+		if (continueFlip) {
+			// gather bowls for sorting candy
+			var flipLen = flipThis.length,
+				allAttrs = nuA(flipLen),
+				newAttrs = nuA(1),
+				allData = nuA(colCount);
+			newTab = nuA(colCount);
+			// divide and organize the candy
+			var outerCounter = colCount;
+			for (var columns in flipThis[0]) {
+				var tempArr = nuA(flipLen),
+					iterator = flipLen;
+				while (iterator--) {
+					// organize candy by attribute
+					tempArr[iterator] = flipThis[iterator][columns];
 				}
+				// line up candies in row
+				tempArr.push(columns);
+				// line up rows of candy with one another
+				if (columns === axis) newAttrs[0] = tempArr;
+				else allData[outerCounter] = tempArr;
+				outerCounter--;
 			}
-			newTab[i] = newRow;
+			allData.reverse();
+			newAttrs.reverse();
+			var i = allData.length;
+			while (i--) {
+				// create new goodieBag
+				var bag = {},
+					dataLen = allData[i].length;
+				// fill goodieBag with goodies
+				var access = dataLen;
+				while (access--) {
+					// if special goodie, treat it right
+					// else throw it all in
+					if (access === dataLen) bag[axis] = allData[i][access];
+					else bag[newAttrs[0][access]] = allData[i][access];
+				}
+				// give new goodiebag a home
+				newTab[i] = bag;
+			}
 		}
+		// finish giving out goodie bags
 		return newTab;
 	}
 	// inverts columns and rows for any given location
@@ -102,7 +118,7 @@ document.body.onload = (function() {
 				var tempTab = location[sheetName];
 				for (var i = flipArr.length - 1; i >= 0; i--) {
 					if (sheetName == flipArr[i]) {
-						tempTab = flipArray(axis, tempTab);
+						tempTab = flipMatrix(axis, tempTab);
 					}
 				}
 				location[sheetName] = tempTab;
@@ -132,6 +148,7 @@ document.body.onload = (function() {
 		this["meta"]["googleCellKey"] = '$t';
 		this["meta"]["partialStr"] = '-partial';
 		this["meta"]["partialsGrouped"] = false;
+		this["meta"]["configStr"] = "config";
 		return this;
 	};
 	SheetServe.prototype.toFileWriter = function(obj, fileName, callback) {

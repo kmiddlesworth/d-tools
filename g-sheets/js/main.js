@@ -1,6 +1,31 @@
 var globalVar;
 document.body.onload = (function() {
 	"use strict";
+	if (!Array.prototype.filter) {
+		Array.prototype.filter = function(fun /*, thisArg */ ) {
+			if (this === void 0 || this === null) throw new TypeError();
+			var t = Object(this),
+				len = t.length >>> 0;
+			if (typeof fun !== "function") throw new TypeError();
+			var res = [],
+				thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+			for (var i = 0; i < len; i++) {
+				if (i in t) {
+					var val = t[i];
+					// pulled from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter
+					// NOTE: Technically this should Object.defineProperty at
+					//       the next index, as push can be affected by
+					//       properties on Object.prototype and Array.prototype.
+					//       But that method's new, and collisions should be
+					//       rare, so use the more-compatible alternative.
+					if (fun.call('<span style="line-height: normal;">thisArg</span><span style="line-height: normal;">, val, i, t))</span>')) {
+						res.push(val);
+					}
+				}
+				return res;
+			}
+		};
+	}
 
 	function getUrlParams() {
 		var paramStr = window.location.search,
@@ -405,8 +430,8 @@ document.body.onload = (function() {
 	SheetServe.prototype.gimmeThese = function(location, filter) {
 		var allThings = location,
 			returnedObj;
-		if (filter.filter) {
-			var myscreen = filter.filter,
+		if (filter.only) {
+			var myscreen = filter.only,
 				filterLen = myscreen.length - 1;
 			returnedObj = {};
 			if (filterLen > 0) {
@@ -464,8 +489,69 @@ document.body.onload = (function() {
 		return newObj;
 	}
 
-	function concatPartials(start) {
-		// console.log(start);
+	function onlyUnique(value, index, self) {
+		return self.indexOf(value) === index;
+	}
+
+	function isBigEnough(element) {
+		return element >= 10;
+	}
+
+	function concatPartials(start, prefix) {
+		var partialLen = start.sheets.length,
+			partialsUsed = [];
+		// iterate through sheet and look for things with partial suffix
+		var i = partialLen;
+		// find all the partials that are called by partials
+		// and put them into an array called defined above
+		while (i--) {
+			for (var colNam in start.sheets[i]) {
+				if (colNam.indexOf(prefix) > -1) {
+					partialsUsed.push(colNam);
+				}
+			}
+		}
+		// get rid of all duplicated partial names
+		partialsUsed = partialsUsed.filter(onlyUnique);
+		// set for future use
+		var partialsUsedLen = partialsUsed.length;
+		i = partialLen;
+		// remove all the meta tags next to the partials
+		// to streamline any recursion
+		while (i--) {
+			var foundMatch = false;
+			for (var colName in start.meta[i]) {
+				var j = partialsUsedLen;
+				while (j--) {
+					if (start.meta[i][colName] === partialsUsed[j]) {
+						foundMatch = true;
+					}
+				}
+			}
+			if (foundMatch === false) {
+				delete start.meta[i];
+			}
+		}
+		//
+		i = partialLen;
+		while (i--) {
+			if (start.meta[i]) {
+
+			}
+		}
+	}
+
+	function clearEmptyCells(that) {
+		var datLen = that.length,
+			i = datLen;
+		while (i--) {
+			var row = that[i];
+			for (var col in row) {
+				if (row[col] === "") {
+					delete row[col];
+				}
+			}
+		}
 	}
 	SheetServe.prototype.onload = function(finished) {
 		var configStr = this["meta"]["configStr"];
@@ -484,9 +570,7 @@ document.body.onload = (function() {
 				self.meta.timestamp = data.feed.updated.$t;
 				var tempArr = [];
 				for (var x = 0; x < data.feed.entry.length; x++) {
-					tempArr.push(data.feed.entry[x].id.$t
-						.replace('/worksheets/', '/list/')
-						.replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
+					tempArr.push(data.feed.entry[x].id.$t.replace('/worksheets/', '/list/').replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 				}
 				self.ajaxGetter(tempArr, function(d) {
 					self.sheets[d.feed.title.$t] = self.makeBasicSheets(d.feed.entry, d.feed.title.$t);
@@ -497,11 +581,15 @@ document.body.onload = (function() {
 					var flipTabs = rowColFlipper(self.meta[configStr].flipattr);
 					// like here
 					flipTabs(self.meta[configStr].verticaltabs, self.sheets);
+					// weed out all empty cells
+					for (var sheet in self.sheets) {
+						clearEmptyCells(self.sheets[sheet]);
+					}
 					// get partial names,
 					var partialsToDelete = self.getPartialTabNames(self.sheets);
 					// copy the partials into a special sheet
 					self.partials = self.gimmeThese(self.sheets, {
-						filter: partialsToDelete
+						only: partialsToDelete
 					});
 					var metaTags = {
 						parentLink: "parentpartial",
@@ -512,12 +600,13 @@ document.body.onload = (function() {
 						from: "sheets",
 						to: "meta"
 					}, metaTags);
-					concatPartials(self.partials);
-
+					concatPartials(self.partials, self.meta.partialStr);
 					// add config object to delete with partialsToDelete
 					partialsToDelete.push(configStr);
 					// remove everything that has been copied so that you do not overwork the object
 					self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
+					// copy partials into main sheet object
+
 					// convert the partials from their rows to objects themselves
 					// for (var sheetName in self.partials) {
 					// 	self.partials[sheetName] = self.convertArrToObj(self.partials[sheetName], "partialid");

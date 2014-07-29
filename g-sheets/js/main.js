@@ -1,8 +1,8 @@
 var globalVar;
-document.body.onload = (function() {
+document.body.onload = (function () {
 	"use strict";
 	if (!Array.prototype.filter) {
-		Array.prototype.filter = function(fun /*, thisArg */ ) {
+		Array.prototype.filter = function (fun /*, thisArg */ ) {
 			if (this === void 0 || this === null) throw new TypeError();
 			var t = Object(this),
 				len = t.length >>> 0;
@@ -26,11 +26,6 @@ document.body.onload = (function() {
 			}
 		};
 	}
-	// Object.prototype.extend = function(obj) {
-	// 	for (var i in obj) {
-	// 		this[i] = obj[i];
-	// 	}
-	// };
 
 	function getUrlParams() {
 		var paramStr = window.location.search,
@@ -142,7 +137,7 @@ document.body.onload = (function() {
 	// inverts columns and rows for any given location
 	// axis should be the upper left corner of the tab
 	function rowColFlipper(axis) {
-		return function(flipThese, location) {
+		return function (flipThese, location) {
 			var flipArr = flipThese.split(" ");
 			for (var sheetName in location) {
 				var tempTab = location[sheetName];
@@ -169,7 +164,7 @@ document.body.onload = (function() {
 		this["meta"]["configStr"] = "config";
 		return this;
 	};
-	SheetServe.prototype.toFileWriter = function(obj, fileName, callback) {
+	SheetServe.prototype.toFileWriter = function (obj, fileName, callback) {
 		var selfie = this;
 		$.ajax({
 			url: 'buildjson.php',
@@ -180,14 +175,14 @@ document.body.onload = (function() {
 				// send the key along side it
 				key: obj.meta.key
 			},
-			success: function(data) {
+			success: function (data) {
 				obj.meta.loaded = true;
 				if (callback) callback(data);
 			},
-			error: function(jqXHR, textStatus, error) {}
+			error: function (jqXHR, textStatus, error) {}
 		});
 	};
-	SheetServe.prototype.getPartialTabNames = function(path) {
+	SheetServe.prototype.getPartialTabNames = function (path) {
 		var pNames = [],
 			checkThisObj = path;
 		for (var sheetName in checkThisObj) {
@@ -197,7 +192,7 @@ document.body.onload = (function() {
 		}
 		return pNames;
 	};
-	SheetServe.prototype.injectPartial = function(sheetName, thisTab, thisRow) {
+	SheetServe.prototype.injectPartial = function (sheetName, thisTab, thisRow) {
 		var tempArr = this.getPartialTabNames(),
 			foundIt = false;
 		for (var tabNum = 0;
@@ -213,7 +208,7 @@ document.body.onload = (function() {
 		}
 		return foundIt;
 	};
-	SheetServe.prototype.cleanPartialIds = function(pIdArr) {
+	SheetServe.prototype.cleanPartialIds = function (pIdArr) {
 		for (var i = pIdArr.length - 1; i >= 0; i--) {
 			var arrOfObjNames = this.sheets.partials[pIdArr[i]];
 			for (var tabName in this.sheets) {
@@ -223,88 +218,63 @@ document.body.onload = (function() {
 			}
 		}
 	};
-	SheetServe.prototype.injectPartials = function(key, d) {
-		// grab all of the partial tabs and put them into a variable
-		this.getPartialTabNames();
-		for (var sheetName in this.sheets) {
-			// iterates through each tab, storing it in a variable
-			var tab = this.sheets[sheetName];
-			for (var row = tab.length - 1, thisRow; row >= 0; row--) {
-				// iterates through each row, storing it in a variable
-				thisRow = tab[row];
-				// find all of the columns, and see if any match the partialStr attribute
-				for (var column in thisRow) {
-					// if they do, then
-					if (column.indexOf(this.meta.config.partialstr) > -1) {
-						// figure out if the cell in that row and in that column is an array or a string
-						var cell = thisRow[column];
-						if (Array.isArray(cell)) {
-							for (var m = cell.length - 1; m >= 0; m--) {
-								this.sheets[sheetName][row][column][m] = this.injectPartial(sheetName, column, cell);
-							}
-						} else {
-							this.sheets[sheetName][row][cell] = this.injectPartial(sheetName, column, cell);
-						}
+
+	function findMorePartials(orig, parent, split) {
+		for (var col in parent) {
+			if (col.indexOf(split) > -1) {
+				if (typeof parent[col] === "string") {
+					var theseParts = parent[col].split(" ");
+					for (var i = theseParts.length - 1; i >= 0; i--) {
+						parent[col] = orig.findPartial(col, theseParts[i]);
 					}
 				}
+				findMorePartials(orig, parent[col], split);
 			}
+			makeArraysAndObjects(parent, "--");
 		}
-		this.meta.addPartials = true;
-		return this;
-	};
+	}
 
 	function makeArraysAndObjects(ro, split) {
-		var newVal;
+		var newObj = false,
+			index, name, value;
 		for (var key in ro) {
 			var splitKey = key.split(split),
-				index = splitKey[1],
-				name = splitKey[0],
-				value = ro[key];
-			if (splitKey.length > 1) {
+				sKeyLen = splitKey.length;
+			index = splitKey[1];
+			name = splitKey[0];
+			value = ro[key];
+			if (sKeyLen > 1) {
 				if (!ro[name]) {
-					if (parseInt(index, 10)) {
-						ro[name] = [];
-					} else {
-						ro[name] = {};
-					}
+					if (parseInt(index, 10)) ro[name] = [];
+					else ro[name] = {};
 				}
-				if (parseInt(index, 10)) {
-					ro[name].push(value);
-				} else {
-					ro[name][index] = value;
-				}
+				if (parseInt(index, 10)) ro[name][index - 1] = value;
+				else ro[name][index] = value;
 				delete ro[key];
+			} else {
+				if (value == "TRUE") ro[key] = true;
+				if (value == "FALSE") ro[key] = false;
 			}
 		}
 	}
-	SheetServe.prototype.compilePartials = function(location) {
-		var finished;
-		for (var tabName in location) {
-			for (var rows in location[tabName]) {
-				// console.log(tabName + ", " + rows);
-				finished = true;
-			}
-		}
-		return location;
-	};
-	SheetServe.prototype.ajaxGetter = function(url, eachCallback, finalCallback) {
+	SheetServe.prototype.ajaxGetter = function (url, eachCallback, finalCallback) {
 		var isArray = $.isArray(url);
 		if (!isArray) url = [url];
 		var totalCount = url.length,
 			currentCount = 0;
-		var ajaxArr = $.map(url, function(item, i) {
+		var ajaxArr = $.map(url, function (item, i) {
 			var nonce = (url[i].indexOf('?') == -1) ? '?nonce=' : '&nonce=';
-			return $.getJSON(url[i] + nonce + Date.now(), function(d) {
+			return $.getJSON(url[i] + nonce + Date.now(), function (d) {
 				eachCallback(d);
 			});
 		});
-		$.when.apply(this, ajaxArr).then(function() {
+		$.when.apply(this, ajaxArr).then(function () {
 			if (finalCallback) finalCallback();
-		}).fail(function() {
+		}).fail(function () {
 			console.log('failed');
 		});
 	};
-	SheetServe.prototype.removeAttrs = function(location, theseVals) {
+	SheetServe.prototype.removeAttrs = function (location, theseVals) {
 		var hereNow = location;
 		if (Array.isArray(theseVals)) {
 			for (var i = theseVals.length - 1; i >= 0; i--) {
@@ -315,7 +285,7 @@ document.body.onload = (function() {
 		}
 		return hereNow;
 	};
-	SheetServe.prototype.convertArrToObj = function(location, newAttr) {
+	SheetServe.prototype.convertArrToObj = function (location, newAttr) {
 		var newObj = {};
 		for (var i = location.length - 1; i >= 0; i--) {
 			newObj[location[i][newAttr]] = location[i];
@@ -323,7 +293,7 @@ document.body.onload = (function() {
 		return newObj;
 	};
 	// creates the most basic form of sheets from the original google data
-	SheetServe.prototype.makeBasicSheets = function(d, sheetKey) {
+	SheetServe.prototype.makeBasicSheets = function (d, sheetKey) {
 		var newArr = [],
 			partialsArr = [];
 		// iterate through tabs
@@ -344,76 +314,12 @@ document.body.onload = (function() {
 		}
 		return newArr;
 	};
-	/*
-	function partialSniffer (thisObj, stringList) {
-		var path = [];
-		function findMatchingPartial(cellStr, colStr){
-			for (var i = thisObj.length - 1; i >= 0; i--) {
-				if (thisObj.meta[partialid] === cellStr && colStr === thisObj.meta[parentStr]) {};
-			}
-		}
-		function returnStrObj (thisString, cellString, colString) {
-			if (thisString === cellString){
-				return findMatchingPartial(cellString, colString);
-			} else {
-				return thisString;
-			}
-		}
-		for(var col in thisRow){
-		}
-		function typeCheck (unkType, path) {
-			if (Array.isArray(unkType)) {
-				arrayBurrow (unkType, allPartials);
-			} else if ((typeof unkType === 'string' && party.string) ||
-				!isNaN(unkType) ||
-				(typeof === 'boolean' && party.string)) {
-					check if string matches a partial
-					injectPartialQuery(unkType);
-
-					i = stringList.length
-			} else if (party.object) {
-				objectBurrow (unkType, party.object);
-			}
-		}
-		function arrayBurrow (myArray) {
-			var plLen = myArray.length;
-			while (plLen--) {
-				typeCheck(myArray[plLen]);
-			}
-		}
-		function objectBurrow (myObj) {
-			for (var attr in myObj) {
-				typeCheck(myObj[attr]);
-			}
-		}
-		function objArrEqualizer (location, layers) {
-			var allPartials = [];
-			for (var partialName in location) {
-				typeCheck(location[partialList], allPartials);
-			}
-			return allPartials;
-		}
-		for (var i = stringList.length - 1; i >= 0; i--) {
-			for in loop iterating over columns {
-				if a match to a partial is found
-					if value is a string
-						replace it with an object
-					else if value is not a string
-						recursively call this function, passing in the object to check for more partials
-						typeCheck(thisObj, stringList)
-						i = stringList.length
-				if match to a partial is not found, continue
-			}
-		}
-		return thisObj
-	}
-	*/
 	// accepts (as filters) a filter or a range
 	// with a filter, you can selectively find indexes of arrays as well object attributes
 	// with a range, you can find any range of numbers
 	// in an array's index and send in multiple ranges
 	// filter will return an object, while a range will always return an array
-	SheetServe.prototype.gimmeThese = function(location, filter) {
+	SheetServe.prototype.gimmeThese = function (location, filter) {
 		var allThings = location,
 			returnedObj;
 		if (filter.only) {
@@ -490,45 +396,6 @@ document.body.onload = (function() {
 		}
 	}
 
-
-
-	// function concatPartials(sheets, meta, prefix) {
-	// 	var partialLen = sheets.length,
-	// 		colHoldr = "parts";
-	// 	// iterate through sheet and look for things with partial suffix
-	// 	// find all the partials that are called by partials prefix
-	// 	// i is basically equal to the row
-	// 	for (var i = partialLen - 1; i >= 0; i--) {
-	// 		for (var colNam in sheets[i]) {
-	// 			var pPointArr = {};
-	// 			// if the partials prefix is found, split the cell into an array
-	// 			// and assign it to the new object attribute
-	// 			if (colNam.indexOf(prefix) > -1) {
-	// 				// if an object has not yet been created to hold the partial arrays, then create it.
-	// 				if (!meta[i][colHoldr]) {
-	// 					meta[i][colHoldr] = {};
-	// 				}
-	// 				var cellArr = sheets[i][colNam].split(" "),
-	// 					tempObjArr = {};
-	// 				for (var j = cellArr.length - 1; j >= 0; j--) {
-	// 					console.log(colNam);
-	// 					if (sheets[j][colNam] === cellArr[j] && sheets[j]["parentpartial"] === colNam){
-
-	// 					}
-	// 				}
-	// 				meta[i][colHoldr][colNam] = cellArr;
-
-	// 			}
-	// 		}
-	// 	}
-	// 	// done gathering info and putting into meta tags
-	// 	for (var it = partialLen - 1; it >= 0; it--) {
-	// 		if (meta[it][colHoldr]) {
-	// 			console.log(meta[it][colHoldr]);
-	// 		}
-	// 	}
-	// }
-
 	function clearEmptyCells(that) {
 		for (var i = that.length - 1; i >= 0; i--) {
 			var row = that[i];
@@ -554,14 +421,13 @@ document.body.onload = (function() {
 						for (var j = cellLen - 1; j >= 0; j--) {
 							extendObj(replacement, dis.findPartial(col, cell[j]));
 						}
-						makeArraysAndObjects(replacement, dis.meta.config.splitstring);
 						dis.sheets[tabs][ro][col] = replacement;
 					}
 				}
 			}
 		}
 	}
-	SheetServe.prototype.findPartial = function(tab, row) {
+	SheetServe.prototype.findPartial = function (tab, row) {
 		var meta = this.partials.meta,
 			sheets = this.partials.sheets;
 		for (var i = meta.length - 1; i >= 0; i--) {
@@ -571,28 +437,31 @@ document.body.onload = (function() {
 		}
 		return undefined;
 	};
-	SheetServe.prototype.onload = function(finished) {
+	SheetServe.prototype.onload = function (finished) {
 		var configStr = this["meta"]["configStr"];
-		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
+		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function (e) {
 			finished();
 		});
 		// if not connected to internet
 		var self = this;
+		console.log(this);
 		if (!navigator.onLine) {
 			$.extend(this, JSON.parse(localStorage.getItem(this.key)));
 			$(window).trigger('sheetsLoaded.' + this.key);
 			return;
 		} else {
-			this.ajaxGetter(self.meta.sheetUrl, function(data) {
+			this.ajaxGetter(self.meta.sheetUrl, function (data) {
 				self.meta.title = data.feed.title.$t;
 				self.meta.timestamp = data.feed.updated.$t;
 				var tempArr = [];
 				for (var x = 0; x < data.feed.entry.length; x++) {
 					tempArr.push(data.feed.entry[x].id.$t.replace('/worksheets/', '/list/').replace('/public/basic', '') + '/public/values' + self.meta.jsonQuery);
 				}
-				self.ajaxGetter(tempArr, function(d) {
-					self.sheets[d.feed.title.$t] = self.makeBasicSheets(d.feed.entry, d.feed.title.$t);
-				}, function() {
+				self.ajaxGetter(tempArr, function (d) {
+					if (d.feed.entry !== undefined) {
+						self.sheets[d.feed.title.$t] = self.makeBasicSheets(d.feed.entry, d.feed.title.$t);
+					}
+				}, function () {
 					// move the config object to the meta object
 					self.meta[configStr] = self.sheets[configStr][0];
 					// after the attribute has been set, you can call the function returned anywhere
@@ -625,27 +494,12 @@ document.body.onload = (function() {
 						key: metaTags.parentLink,
 						val: metaTags.cellLink
 					});
-					injectPartials(self);
+					// make function that saves compiled
 					for (var tab in self.sheets) {
 						for (var i = self.sheets[tab].length - 1; i >= 0; i--) {
-							makeArraysAndObjects(self.sheets[tab][i], self.meta.config.splitstring);
+							findMorePartials(self, self.sheets[tab][i], self.meta.config.partialstr);
 						}
 					}
-					console.log(self.findPartial("test-partial", "global"));
-					// var compiledPartials = concatPartials(self.partials.sheets, self.partials.meta, self.meta.config.partialstr);
-					// copy partials into main sheet object
-					// convert the partials from their rows to objects themselves
-					// for (var sheetName in self.partials) {
-					// 	self.partials[sheetName] = self.convertArrToObj(self.partials[sheetName], "partialid");
-					// }
-					// get rid of the partialid attribute used to create the partials
-					// for (var sName in self.partials) {
-					// 	for (var innerSName in self.partials[sName]) {
-					// 		self.partials[sName][innerSName] = self.removeAttrs(self.partials[sName][innerSName], ["partialid"]);
-					// 	}
-					// }
-					// compile partials and return the new object
-					// self.partials = self.compilePartials(self.partials);
 					$(window).trigger('sheetsLoaded.');
 					console.log(self);
 				});
@@ -657,11 +511,11 @@ document.body.onload = (function() {
 	if (urlParams.gkey) {
 		var gSheetData = new SheetServe(urlParams.gkey),
 			myGSheetData = gSheetData;
-		gSheetData.onload(function() {
+		gSheetData.onload(function () {
 			// change this so user can input a value from an input box
 			// ... for the link so we can host on different computers and have it run through exactly the same way
-			myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function(d) {
-				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>',
+			myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function (d) {
+				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData , null, 2) + '</pre>',
 					projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',
 					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php&quot;)) ?&gt;</pre>',
 					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.key + '.js") ?&gt;&lt;/script&gt;</pre>';

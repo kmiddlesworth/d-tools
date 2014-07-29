@@ -260,19 +260,21 @@ document.body.onload = (function() {
 				index = splitKey[1],
 				name = splitKey[0],
 				value = ro[key];
-			if (!ro[name]) {
-				if (parseInt(index, 10)) {
-					ro[name] = [];
-				} else {
-					ro[name] = {};
+			if (splitKey.length > 1) {
+				if (!ro[name]) {
+					if (parseInt(index, 10)) {
+						ro[name] = [];
+					} else {
+						ro[name] = {};
+					}
 				}
+				if (parseInt(index, 10)) {
+					ro[name].push(value);
+				} else {
+					ro[name][index] = value;
+				}
+				delete ro[key];
 			}
-			if (parseInt(index, 10)) {
-				ro[name].push(value);
-			} else {
-				ro[name][index] = value;
-			}
-			delete ro[key];
 		}
 	}
 	SheetServe.prototype.compilePartials = function(location) {
@@ -481,8 +483,10 @@ document.body.onload = (function() {
 	}
 	// send object in at a reverse order so that the "last part" is first
 	function extendObj(older, newer) {
-		for (var k in newer) {
-			older[k] = newer[k];
+		if (newer) {
+			for (var k in newer) {
+				older[k] = newer[k];
+			}
 		}
 	}
 
@@ -548,12 +552,7 @@ document.body.onload = (function() {
 							tempArr = nuA(cellLen),
 							replacement = {};
 						for (var j = cellLen - 1; j >= 0; j--) {
-							for (var k = parts.meta.length - 1; k >= 0; k--) {
-								var partPointer = parts.meta[k];
-								if (col === partPointer.key && cell[j] === partPointer.val) {
-									extendObj(replacement, dis.partials.sheets[k]);
-								}
-							}
+							extendObj(replacement, dis.findPartial(col, cell[j]));
 						}
 						makeArraysAndObjects(replacement, dis.meta.config.splitstring);
 						dis.sheets[tabs][ro][col] = replacement;
@@ -562,6 +561,16 @@ document.body.onload = (function() {
 			}
 		}
 	}
+	SheetServe.prototype.findPartial = function(tab, row) {
+		var meta = this.partials.meta,
+			sheets = this.partials.sheets;
+		for (var i = meta.length - 1; i >= 0; i--) {
+			if (meta[i].key === tab && row === meta[i].val) {
+				return sheets[i];
+			}
+		}
+		return undefined;
+	};
 	SheetServe.prototype.onload = function(finished) {
 		var configStr = this["meta"]["configStr"];
 		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function(e) {
@@ -617,6 +626,12 @@ document.body.onload = (function() {
 						val: metaTags.cellLink
 					});
 					injectPartials(self);
+					for (var tab in self.sheets) {
+						for (var i = self.sheets[tab].length - 1; i >= 0; i--) {
+							makeArraysAndObjects(self.sheets[tab][i], self.meta.config.splitstring);
+						}
+					}
+					console.log(self.findPartial("test-partial", "global"));
 					// var compiledPartials = concatPartials(self.partials.sheets, self.partials.meta, self.meta.config.partialstr);
 					// copy partials into main sheet object
 					// convert the partials from their rows to objects themselves

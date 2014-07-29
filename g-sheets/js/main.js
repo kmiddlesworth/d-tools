@@ -252,43 +252,29 @@ document.body.onload = (function() {
 		this.meta.addPartials = true;
 		return this;
 	};
-	SheetServe.prototype.makeArraysAndObjects = function(d, sheetKey) {
-		var newArr = [],
-			partialsArr = [];
-		// for each row...
-		for (var i = 0, count = d.length; i < count; i++) {
-			// create a new object and array
-			var newObj = {},
-				arrConverts = {};
-			for (var key in d[i]) {
-				var objKey = key.replace(this.meta.googlePrefix, ''),
-					objValue = d[i][key][this.meta.googleCellKey];
-				if (d[i].hasOwnProperty(key) && key.indexOf(this.meta.googlePrefix) != -1) {
-					var splitKeyArr = objKey.split('--');
-					if (splitKeyArr.length === 1) {
-						if (objValue !== '') newObj[objKey] = objValue;
-					} else {
-						var keyArr = objKey.split('--');
-						for (var n = keyArr.length - 1; n > 0; n--) {
-							if (!isNaN(keyArr[n] / 1)) {
-								var keyArrPop = keyArr.pop(),
-									newKeyStr = keyArr.join();
-								if (objValue !== '') {
-									if (arrConverts[newKeyStr]) arrConverts[newKeyStr].push(objValue);
-									else arrConverts[newKeyStr] = [objValue];
-								}
-							} else {
-								// make object here
-							}
-						}
-					}
+
+	function makeArraysAndObjects(ro, split) {
+		var newVal;
+		for (var key in ro) {
+			var splitKey = key.split(split),
+				index = splitKey[1],
+				name = splitKey[0],
+				value = ro[key];
+			if (!ro[name]) {
+				if (parseInt(index, 10)) {
+					ro[name] = [];
+				} else {
+					ro[name] = {};
 				}
 			}
-			$.extend(newObj, arrConverts);
-			newArr.push(newObj);
+			if (parseInt(index, 10)) {
+				ro[name].push(value);
+			} else {
+				ro[name][index] = value;
+			}
+			delete ro[key];
 		}
-		return newArr;
-	};
+	}
 	SheetServe.prototype.compilePartials = function(location) {
 		var finished;
 		for (var tabName in location) {
@@ -462,8 +448,7 @@ document.body.onload = (function() {
 			var tempObj = {};
 			tempObj['key'] = start[location.from][i][attrs.key];
 			tempObj['val'] = start[location.from][i][attrs.val];
-			// delete start[location.from][i][attrs.val];
-			// delete start[location.from][i][attrs.key];
+			delete start[location.from][i][attrs.key];
 			start[location.to][i] = tempObj;
 		}
 	}
@@ -500,6 +485,7 @@ document.body.onload = (function() {
 			older[k] = newer[k];
 		}
 	}
+
 
 
 	// function concatPartials(sheets, meta, prefix) {
@@ -545,6 +531,33 @@ document.body.onload = (function() {
 			for (var col in row) {
 				if (row[col] === '') {
 					delete row[col];
+				}
+			}
+		}
+	}
+
+	function injectPartials(dis) {
+		for (var tabs in dis.sheets) {
+			var tab = dis.sheets[tabs],
+				parts = dis.partials;
+			for (var ro = tab.length - 1; ro >= 0; ro--) {
+				for (var col in tab[ro]) {
+					if (col.indexOf(dis.meta.config.partialstr) > -1) {
+						var cell = tab[ro][col].split(" ").reverse(),
+							cellLen = cell.length,
+							tempArr = nuA(cellLen),
+							replacement = {};
+						for (var j = cellLen - 1; j >= 0; j--) {
+							for (var k = parts.meta.length - 1; k >= 0; k--) {
+								var partPointer = parts.meta[k];
+								if (col === partPointer.key && cell[j] === partPointer.val) {
+									extendObj(replacement, dis.partials.sheets[k]);
+								}
+							}
+						}
+						makeArraysAndObjects(replacement, dis.meta.config.splitstring);
+						dis.sheets[tabs][ro][col] = replacement;
+					}
 				}
 			}
 		}
@@ -603,31 +616,7 @@ document.body.onload = (function() {
 						key: metaTags.parentLink,
 						val: metaTags.cellLink
 					});
-					for (var tabs in self.sheets) {
-						var tab = self.sheets[tabs],
-							parts = self.partials;
-						// console.log(tabs);
-						for (var ro = tab.length - 1; ro >= 0; ro--) {
-							// console.log(ro);
-							for (var col in tab[ro]) {
-								if (col.indexOf(self.meta.config.partialstr) > -1) {
-									var cell = tab[ro][col].split(" ").reverse(),
-										cellLen = cell.length,
-										tempArr = nuA(cellLen),
-										replacement = {};
-									for (var j = cellLen - 1; j >= 0; j--) {
-										for (var k = parts.meta.length - 1; k >= 0; k--) {
-											var partPointer = parts.meta[k];
-											if (col === partPointer.key && cell[j] === partPointer.val) {
-												extendObj(replacement, self.partials.sheets[k]);
-											}
-										}
-									}
-									self.sheets[tabs][ro][col] = replacement;
-								}
-							}
-						}
-					}
+					injectPartials(self);
 					// var compiledPartials = concatPartials(self.partials.sheets, self.partials.meta, self.meta.config.partialstr);
 					// copy partials into main sheet object
 					// convert the partials from their rows to objects themselves

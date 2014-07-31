@@ -444,7 +444,6 @@ document.body.onload = (function () {
 		});
 		// if not connected to internet
 		var self = this;
-		console.log(this);
 		if (!navigator.onLine) {
 			$.extend(this, JSON.parse(localStorage.getItem(this.key)));
 			$(window).trigger('sheetsLoaded.' + this.key);
@@ -515,7 +514,7 @@ document.body.onload = (function () {
 			// change this so user can input a value from an input box
 			// ... for the link so we can host on different computers and have it run through exactly the same way
 			myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function (d) {
-				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData , null, 2) + '</pre>',
+				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>',
 					projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',
 					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php&quot;)) ?&gt;</pre>',
 					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.key + '.js") ?&gt;&lt;/script&gt;</pre>';

@@ -58,13 +58,18 @@
 			<p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
 		<![endif]-->
 		<div id='wrapper' class="con">
-			<?php if (!isset($_GET['gkey'])): ?><h1>Google Sheets</h1><?php endif; ?>
-		</div>
-		<div class="con">
 			<?php
+
+			if (!isset($_GET['gkey'])){ ?>
+				<h1>Google Sheets</h1>
+			<?php }
+
 			$gSheetData = unserialize(file_get_contents($_SERVER['DOCUMENT_ROOT'] . "/d-tools/g-sheets/json-output-js/1KP0n4oyc68_-0sCOylGvimPGgn90fj-WsGN5KwbQi2I.json"));
+
 			print_r($gSheetData);
+
 			echo htmlentities('<?php $gSheetData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/1KP0n4oyc68_-0sCOylGvimPGgn90fj-WsGN5KwbQi2I.json")) ?>');
+
 		?>
 		</div>
 		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>

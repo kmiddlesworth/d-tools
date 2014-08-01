@@ -225,12 +225,13 @@ document.body.onload = (function () {
 				if (typeof parent[col] === "string") {
 					var theseParts = parent[col].split(" ");
 					for (var i = theseParts.length - 1; i >= 0; i--) {
+						console.log(col);
 						parent[col] = orig.findPartial(col, theseParts[i]);
 					}
 				}
 				findMorePartials(orig, parent[col], split);
 			}
-			makeArraysAndObjects(parent, "--");
+			// makeArraysAndObjects(parent, origin.meta.config.splitstring);
 		}
 	}
 
@@ -319,10 +320,13 @@ document.body.onload = (function () {
 	// with a range, you can find any range of numbers
 	// in an array's index and send in multiple ranges
 	// filter will return an object, while a range will always return an array
+	// or just pass in an everything attribute set to true to get everything
 	SheetServe.prototype.gimmeThese = function (location, filter) {
 		var allThings = location,
 			returnedObj;
-		if (filter.only) {
+		if (filter.everything) {
+			returnedObj = allThings;
+		} else if (filter.only) {
 			var myscreen = filter.only,
 				filterLen = myscreen.length - 1;
 			returnedObj = {};
@@ -331,7 +335,7 @@ document.body.onload = (function () {
 					returnedObj[myscreen[i]] = allThings[myscreen[i]];
 				}
 			} else {
-				returnedObj[myscreen[0]] = allThings[myscreen[0]];
+				returnedObj[myscreen[0]] = allThings;
 			}
 		} else if (filter.range) {
 			returnedObj = [];
@@ -351,8 +355,7 @@ document.body.onload = (function () {
 		if (!start[location.to]) {
 			start[location.to] = nuA(startLen);
 		}
-		var i = startLen;
-		while (i--) {
+		for (var i = startLen - 1; i >= 0; i--) {
 			var tempObj = {};
 			tempObj['key'] = start[location.from][i][attrs.key];
 			tempObj['val'] = start[location.from][i][attrs.val];
@@ -362,11 +365,7 @@ document.body.onload = (function () {
 	}
 
 	function pullObjsUp(start, newAttr) {
-		var newObj = [],
-			partialList = [];
-		for (var colNam in start) {
-			partialList.push(colNam);
-		}
+		var newObj = [];
 		for (var tName in start) {
 			if (tName !== "sheets" && tName !== "meta") {
 				for (var rows in start[tName]) {
@@ -419,7 +418,8 @@ document.body.onload = (function () {
 							tempArr = nuA(cellLen),
 							replacement = {};
 						for (var j = cellLen - 1; j >= 0; j--) {
-							extendObj(replacement, dis.findPartial(col, cell[j]));
+							// changed this to function... fix later down the line
+							extendObj(replacement, findPartial(col, cell[j]));
 						}
 						dis.sheets[tabs][ro][col] = replacement;
 					}
@@ -427,22 +427,58 @@ document.body.onload = (function () {
 			}
 		}
 	}
-	SheetServe.prototype.findPartial = function (tab, row) {
-		var meta = this.partials.meta,
-			sheets = this.partials.sheets;
+
+	function findSheetNames(thisLevel) {
+		var tempArr = [];
+		for (var names in thisLevel) {
+			tempArr.push(names);
+		}
+		return tempArr;
+	}
+
+	function findPartial(origin, tab, row) {
+		var meta = origin.meta,
+			sheets = origin.sheets;
+		console.log(row);
 		for (var i = meta.length - 1; i >= 0; i--) {
 			if (meta[i].key === tab && row === meta[i].val) {
 				return sheets[i];
 			}
 		}
 		return undefined;
-	};
+	}
+
+	function findPartialsFromCell(allRows, val) {
+		function iterativeParts(rows, tab, row) {
+			for (var i = steps; i >= 0; i--) {
+				findPartial(allRows, val[steps][i], val[(steps - 1)]);
+			}
+		}
+		var tempObj = {},
+			steps = val.length - 1;
+		if (Array.isArray(val[steps])) {
+			for (var i = steps; i >= 0; i--) {
+				findPartial(allRows, val[steps][i], val[(steps - 1)]);
+			}
+		} else {
+			if (Array.isArray(val[(steps - 1)])) {
+				for (var j = val[(steps - 1)].length - 1; j >= 0; j--) {
+					extendObj(tempObj, findPartial(allRows, val[steps], val[(steps - 1)][j]));
+				}
+			} else {
+				tempObj[val[steps]] = findPartial(allRows, val[steps], val[(steps - 1)]);
+			}
+		}
+		console.log(tempObj);
+		return tempObj;
+	}
 	SheetServe.prototype.onload = function (finished) {
 		var configStr = this["meta"]["configStr"];
 		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function (e) {
 			finished();
 		});
 		// if not connected to internet
+		console.log(this);
 		var self = this;
 		if (!navigator.onLine) {
 			$.extend(this, JSON.parse(localStorage.getItem(this.key)));
@@ -463,40 +499,63 @@ document.body.onload = (function () {
 				}, function () {
 					// move the config object to the meta object
 					self.meta[configStr] = self.sheets[configStr][0];
+					delete self.sheets[configStr];
 					// after the attribute has been set, you can call the function returned anywhere
-					var flipTabs = rowColFlipper(self.meta[configStr].flipattr);
+					var flipTabs = rowColFlipper(self.meta[configStr].axis);
 					// like here
 					flipTabs(self.meta[configStr].verticaltabs, self.sheets);
 					// weed out all empty cells
 					for (var sheet in self.sheets) {
 						clearEmptyCells(self.sheets[sheet]);
 					}
-					// get partial names,
-					var partialsToDelete = self.getPartialTabNames(self.sheets);
-					// copy the partials into a special sheet
-					self.partials = self.gimmeThese(self.sheets, {
-						only: partialsToDelete
-					});
+					// get sheet names,
+					var allSheetNames = findSheetNames(self.sheets);
+					// copy the partials into an object in memory
+					var allRow = self.sheets;
 					var metaTags = {
 						parentLink: "parenttab",
-						cellLink: "partialid"
+						cellLink: self.meta.config.axis
 					};
-					// add config object to delete with partialsToDelete
-					partialsToDelete.push(configStr);
+					delete self.sheets;
 					// remove everything that has been copied so that you do not overwork the object
-					self.sheets = self.removeAttrs(self.sheets, partialsToDelete);
-					self.partials.sheets = pullObjsUp(self.partials, metaTags);
-					divideParallel(self.partials, {
+					allRow.sheets = pullObjsUp(allRow, metaTags);
+					divideParallel(allRow, {
 						from: "sheets",
 						to: "meta"
 					}, {
 						key: metaTags.parentLink,
 						val: metaTags.cellLink
 					});
+					var roMeta = allRow.meta,
+						rows = allRow.sheets;
+					self.sheets = {};
+					for (var i = roMeta.length - 1; i >= 0; i--) {
+						var row = allRow.sheets[i];
+						if (!self.sheets[roMeta[i].key]) {
+							self.sheets[roMeta[i].key] = {};
+						}
+						self.sheets[roMeta[i].key][roMeta[i].val] = row;
+					}
 					// make function that saves compiled
 					for (var tab in self.sheets) {
-						for (var i = self.sheets[tab].length - 1; i >= 0; i--) {
-							findMorePartials(self, self.sheets[tab][i], self.meta.config.partialstr);
+						var thisTab = self.sheets[tab];
+						for (var ro in thisTab) {
+							var thisRo = thisTab[ro];
+							for (var cell in thisRo) {
+								var val = thisRo[cell].split(self.meta.config.tunnel),
+									valLen = val.length;
+								if (val.length > 1) {
+									val.reverse();
+									for (var k = valLen - 1; k >= 0; k--) {
+										var innerVal = val[k].split(" ");
+										if (innerVal.length > 1) {
+											val[k] = innerVal.reverse();
+										}
+									}
+									thisRo[cell] = findPartialsFromCell(allRow, val);
+								}
+								// findMorePartials(self, thisRo[cell], self.meta.config.partialstr);
+							}
 						}
 					}
 					$(window).trigger('sheetsLoaded.');
@@ -508,16 +567,15 @@ document.body.onload = (function () {
 	};
 	var urlParams = getUrlParams() || false;
 	if (urlParams.gkey) {
-		var gSheetData = new SheetServe(urlParams.gkey),
-			myGSheetData = gSheetData;
+		var gSheetData = new SheetServe(urlParams.gkey);
 		gSheetData.onload(function () {
 			// change this so user can input a value from an input box
 			// ... for the link so we can host on different computers and have it run through exactly the same way
-			myGSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function (d) {
+			gSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function (d) {
 				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>',
 					projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',
-					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.key + '.php&quot;)) ?&gt;</pre>',
-					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.key + '.js") ?&gt;&lt;/script&gt;</pre>';
+					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.meta.key + '.php&quot;)) ?&gt;</pre>',
+					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.meta.key + '.js") ?&gt;&lt;/script&gt;</pre>';
 				document.getElementById("wrapper").innerHTML = d + projectBtn + phpJsIncludeCode + phpIncludeCode + dataString;
 			});
 			if (gSheetData.meta.config.open == "TRUE") {

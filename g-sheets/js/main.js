@@ -231,7 +231,7 @@ document.body.onload = (function () {
 				}
 				findMorePartials(orig, parent[col], split);
 			}
-			// makeArraysAndObjects(parent, origin.meta.config.splitstring);
+			makeArraysAndObjects(parent, orig.meta.splitstring);
 		}
 	}
 
@@ -252,9 +252,6 @@ document.body.onload = (function () {
 				if (parseInt(index, 10)) ro[name][index - 1] = value;
 				else ro[name][index] = value;
 				delete ro[key];
-			} else {
-				if (value == "TRUE") ro[key] = true;
-				if (value == "FALSE") ro[key] = false;
 			}
 		}
 	}
@@ -399,35 +396,33 @@ document.body.onload = (function () {
 		for (var i = that.length - 1; i >= 0; i--) {
 			var row = that[i];
 			for (var col in row) {
-				if (row[col] === '') {
-					delete row[col];
-				}
+				if (row[col] === '') delete row[col];
+				if (row[col] == "TRUE") row[col] = true;
+				if (row[col] == "FALSE") row[col] = false;
 			}
 		}
 	}
-
-	function injectPartials(dis) {
-		for (var tabs in dis.sheets) {
-			var tab = dis.sheets[tabs],
-				parts = dis.partials;
-			for (var ro = tab.length - 1; ro >= 0; ro--) {
-				for (var col in tab[ro]) {
-					if (col.indexOf(dis.meta.config.partialstr) > -1) {
-						var cell = tab[ro][col].split(" ").reverse(),
-							cellLen = cell.length,
-							tempArr = nuA(cellLen),
-							replacement = {};
-						for (var j = cellLen - 1; j >= 0; j--) {
-							// changed this to function... fix later down the line
-							extendObj(replacement, findPartial(col, cell[j]));
-						}
-						dis.sheets[tabs][ro][col] = replacement;
-					}
-				}
-			}
-		}
-	}
-
+	// function injectPartials(dis) {
+	// 	for (var tabs in dis.sheets) {
+	// 		var tab = dis.sheets[tabs],
+	// 			parts = dis.partials;
+	// 		for (var ro = tab.length - 1; ro >= 0; ro--) {
+	// 			for (var col in tab[ro]) {
+	// 				if (col.indexOf(dis.meta.config.partialstr) > -1) {
+	// 					var cell = tab[ro][col].split(" ").reverse(),
+	// 						cellLen = cell.length,
+	// 						tempArr = nuA(cellLen),
+	// 						replacement = {};
+	// 					for (var j = cellLen - 1; j >= 0; j--) {
+	// 						// changed this to function... fix later down the line
+	// 						extendObj(replacement, findPartial(col, cell[j]));
+	// 					}
+	// 					dis.sheets[tabs][ro][col] = replacement;
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 	function findSheetNames(thisLevel) {
 		var tempArr = [];
 		for (var names in thisLevel) {
@@ -439,7 +434,6 @@ document.body.onload = (function () {
 	function findPartial(origin, tab, row) {
 		var meta = origin.meta,
 			sheets = origin.sheets;
-		console.log(row);
 		for (var i = meta.length - 1; i >= 0; i--) {
 			if (meta[i].key === tab && row === meta[i].val) {
 				return sheets[i];
@@ -449,29 +443,35 @@ document.body.onload = (function () {
 	}
 
 	function findPartialsFromCell(allRows, val) {
-		function iterativeParts(rows, tab, row) {
-			for (var i = steps; i >= 0; i--) {
-				findPartial(allRows, val[steps][i], val[(steps - 1)]);
-			}
-		}
-		var tempObj = {},
-			steps = val.length - 1;
-		if (Array.isArray(val[steps])) {
-			for (var i = steps; i >= 0; i--) {
-				findPartial(allRows, val[steps][i], val[(steps - 1)]);
-			}
-		} else {
-			if (Array.isArray(val[(steps - 1)])) {
-				for (var j = val[(steps - 1)].length - 1; j >= 0; j--) {
-					extendObj(tempObj, findPartial(allRows, val[steps], val[(steps - 1)][j]));
+		var retObj = {};
+		if (val.length === 2) {
+			for (var i = val[1].length - 1; i >= 0; i--) {
+				for (var j = val[0].length - 1; j >= 0; j--) {
+					extendObj(retObj, findPartial(allRows, val[1][i], val[0][j]));
 				}
-			} else {
-				tempObj[val[steps]] = findPartial(allRows, val[steps], val[(steps - 1)]);
 			}
 		}
-		console.log(tempObj);
-		return tempObj;
+		return retObj;
 	}
+	var setTunnel = function (tunnel, allRow) {
+		return function (val) {
+			if (typeof val === "string") {
+				val = val.split(tunnel);
+				var valLen = val.length;
+				if (valLen === 1) return val[0];
+				if (valLen > 1) {
+					val.reverse();
+					for (var k = valLen - 1; k >= 0; k--) {
+						var innerVal = val[k].split(" ");
+						if (innerVal.length > 1) innerVal.reverse();
+						val[k] = innerVal;
+					}
+					return findPartialsFromCell(allRow, val);
+				}
+			}
+			return val;
+		};
+	};
 	SheetServe.prototype.onload = function (finished) {
 		var configStr = this["meta"]["configStr"];
 		$(window).off('sheetsLoaded.' + this.key).on('sheetsLoaded.' + this.key, function (e) {
@@ -498,25 +498,24 @@ document.body.onload = (function () {
 					}
 				}, function () {
 					// move the config object to the meta object
-					self.meta[configStr] = self.sheets[configStr][0];
+					extendObj(self.meta, self.sheets[configStr][0]);
 					delete self.sheets[configStr];
 					// after the attribute has been set, you can call the function returned anywhere
-					var flipTabs = rowColFlipper(self.meta[configStr].axis);
+					var flipTabs = rowColFlipper(self.meta.axis);
 					// like here
-					flipTabs(self.meta[configStr].verticaltabs, self.sheets);
+					flipTabs(self.meta.verticaltabs, self.sheets);
 					// weed out all empty cells
-					for (var sheet in self.sheets) {
-						clearEmptyCells(self.sheets[sheet]);
-					}
+					// for (var sheet in self.sheets) {}
 					// get sheet names,
 					var allSheetNames = findSheetNames(self.sheets);
 					// copy the partials into an object in memory
-					var allRow = self.sheets;
+					var allRow;
+					allRow = self.sheets;
 					var metaTags = {
 						parentLink: "parenttab",
-						cellLink: self.meta.config.axis
+						cellLink: self.meta.axis
 					};
-					delete self.sheets;
+					// delete self.sheets;
 					// remove everything that has been copied so that you do not overwork the object
 					allRow.sheets = pullObjsUp(allRow, metaTags);
 					divideParallel(allRow, {
@@ -529,6 +528,7 @@ document.body.onload = (function () {
 					var roMeta = allRow.meta,
 						rows = allRow.sheets;
 					self.sheets = {};
+					clearEmptyCells(rows);
 					for (var i = roMeta.length - 1; i >= 0; i--) {
 						var row = allRow.sheets[i];
 						if (!self.sheets[roMeta[i].key]) {
@@ -536,50 +536,41 @@ document.body.onload = (function () {
 						}
 						self.sheets[roMeta[i].key][roMeta[i].val] = row;
 					}
-					// make function that saves compiled
+					// cellular object injection
+					var tunnelSet = setTunnel(self.meta.tunnel, allRow);
 					for (var tab in self.sheets) {
 						var thisTab = self.sheets[tab];
 						for (var ro in thisTab) {
 							var thisRo = thisTab[ro];
 							for (var cell in thisRo) {
-								var val = thisRo[cell].split(self.meta.config.tunnel),
-									valLen = val.length;
-								if (val.length > 1) {
-									val.reverse();
-									for (var k = valLen - 1; k >= 0; k--) {
-										var innerVal = val[k].split(" ");
-										if (innerVal.length > 1) {
-											val[k] = innerVal.reverse();
-										}
-									}
-									thisRo[cell] = findPartialsFromCell(allRow, val);
-								}
-								// findMorePartials(self, thisRo[cell], self.meta.config.partialstr);
+								var val = thisRo[cell];
+								thisRo[cell] = tunnelSet(thisRo[cell]);
 							}
+							makeArraysAndObjects(thisRo, self.meta.splitobj);
 						}
 					}
 					$(window).trigger('sheetsLoaded.');
-					console.log(self);
 				});
 			});
 		}
 		return;
 	};
+	// findMorePartials(self, thisRo[cell], self.meta.partialstr);
 	var urlParams = getUrlParams() || false;
 	if (urlParams.gkey) {
 		var gSheetData = new SheetServe(urlParams.gkey);
 		gSheetData.onload(function () {
 			// change this so user can input a value from an input box
 			// ... for the link so we can host on different computers and have it run through exactly the same way
-			gSheetData.toFileWriter(gSheetData, gSheetData.meta.config.key, function (d) {
+			gSheetData.toFileWriter(gSheetData, gSheetData.meta.key, function (d) {
 				var dataString = '<p><strong>Compiled JSON:</strong></p><pre>' + JSON.stringify(gSheetData, null, 2) + '</pre>',
-					projectBtn = '<a class="button" href="' + gSheetData.meta.config.projecturl + '">Project: ' + gSheetData.meta.config.projectname + '</a>',
+					projectBtn = '<a class="button" href="' + gSheetData.meta.projecturl + '">Project: ' + gSheetData.meta.projectname + '</a>',
 					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.meta.key + '.php&quot;)) ?&gt;</pre>',
 					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.meta.key + '.js") ?&gt;&lt;/script&gt;</pre>';
 				document.getElementById("wrapper").innerHTML = d + projectBtn + phpJsIncludeCode + phpIncludeCode + dataString;
 			});
-			if (gSheetData.meta.config.open == "TRUE") {
-				window.open(gSheetData.meta.config.projecturl, "_blank");
+			if (gSheetData.meta.open == "TRUE") {
+				window.open(gSheetData.meta.projecturl, "_blank");
 			}
 		});
 	} else {

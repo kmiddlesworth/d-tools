@@ -225,7 +225,6 @@ document.body.onload = (function () {
 				if (typeof parent[col] === "string") {
 					var theseParts = parent[col].split(" ");
 					for (var i = theseParts.length - 1; i >= 0; i--) {
-						console.log(col);
 						parent[col] = orig.findPartial(col, theseParts[i]);
 					}
 				}
@@ -318,7 +317,7 @@ document.body.onload = (function () {
 	// in an array's index and send in multiple ranges
 	// filter will return an object, while a range will always return an array
 	// or just pass in an everything attribute set to true to get everything
-	SheetServe.prototype.gimmeThese = function (location, filter) {
+	var gimmeThese = function (location, filter) {
 		var allThings = location,
 			returnedObj;
 		if (filter.everything) {
@@ -384,21 +383,21 @@ document.body.onload = (function () {
 		return element >= 10;
 	}
 	// send object in at a reverse order so that the "last part" is first
-	function extendObj(older, newer) {
-		if (newer) {
-			for (var k in newer) {
-				older[k] = newer[k];
+	function extendObj(old, nu) {
+		if (nu) {
+			for (var k in nu) {
+				old[k] = nu[k];
 			}
 		}
 	}
 
 	function clearEmptyCells(that) {
 		for (var i = that.length - 1; i >= 0; i--) {
-			var row = that[i];
-			for (var col in row) {
-				if (row[col] === '') delete row[col];
-				if (row[col] == "TRUE") row[col] = true;
-				if (row[col] == "FALSE") row[col] = false;
+			var ro = that[i];
+			for (var col in ro) {
+				if (ro[col] === '') delete ro[col];
+				if (ro[col] == "TRUE") ro[col] = true;
+				if (ro[col] == "FALSE") ro[col] = false;
 			}
 		}
 	}
@@ -501,7 +500,25 @@ document.body.onload = (function () {
 					extendObj(self.meta, self.sheets[configStr][0]);
 					delete self.sheets[configStr];
 					// after the attribute has been set, you can call the function returned anywhere
-					var flipTabs = rowColFlipper(self.meta.axis);
+					var flipTabs,
+						tabsToFlip,
+						oppositeFlipTabs = self.meta.verticaltabs.split(' ');
+					console.log(oppositeFlipTabs);
+					if (self.meta.verticaltabsdefault) {
+						tabsToFlip = findSheetNames(self.sheets);
+						for (var i = oppositeFlipTabs.length - 1; i >= 0; i--) {
+							for (var j = tabsToFlip.length - 1; j >= 0; j--) {
+								console.log(tabsToFlip[j]);
+								if (oppositeFlipTabs[i] === tabsToFlip[j]) {
+									delete tabsToFlip[j];
+									tabsToFlip.join(' ').split(' ');
+								}
+							}
+						}
+					}
+					if (!self.meta.verticaltabsdefault) tabsToFlip = oppositeFlipTabs;
+					console.log(tabsToFlip);
+					flipTabs = rowColFlipper(tabsToFlip);
 					// like here
 					flipTabs(self.meta.verticaltabs, self.sheets);
 					// weed out all empty cells

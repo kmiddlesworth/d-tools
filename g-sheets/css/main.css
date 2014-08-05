@@ -443,3 +443,10 @@ textarea {
         page-break-after: avoid;
     }
 }
+
+
+#data-wrapper li,
+#data-wrapper ul {
+    list-style-type: none !important;
+    margin-top: 0;
+}

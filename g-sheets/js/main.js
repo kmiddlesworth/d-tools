@@ -233,6 +233,7 @@ document.body.onload = (function () {
 			makeArraysAndObjects(parent, orig.meta.splitstring);
 		}
 	}
+	var onlyNow = false;
 
 	function makeArraysAndObjects(ro, split) {
 		var newObj = false,
@@ -401,27 +402,7 @@ document.body.onload = (function () {
 			}
 		}
 	}
-	// function injectPartials(dis) {
-	// 	for (var tabs in dis.sheets) {
-	// 		var tab = dis.sheets[tabs],
-	// 			parts = dis.partials;
-	// 		for (var ro = tab.length - 1; ro >= 0; ro--) {
-	// 			for (var col in tab[ro]) {
-	// 				if (col.indexOf(dis.meta.config.partialstr) > -1) {
-	// 					var cell = tab[ro][col].split(" ").reverse(),
-	// 						cellLen = cell.length,
-	// 						tempArr = nuA(cellLen),
-	// 						replacement = {};
-	// 					for (var j = cellLen - 1; j >= 0; j--) {
-	// 						// changed this to function... fix later down the line
-	// 						extendObj(replacement, findPartial(col, cell[j]));
-	// 					}
-	// 					dis.sheets[tabs][ro][col] = replacement;
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
+
 	function findSheetNames(thisLevel) {
 		var tempArr = [];
 		for (var names in thisLevel) {
@@ -453,10 +434,11 @@ document.body.onload = (function () {
 		return retObj;
 	}
 	var setTunnel = function (tunnel, allRow) {
-		return function (val) {
+		return function findAndReplace(val) {
 			if (typeof val === "string") {
 				val = val.split(tunnel);
 				var valLen = val.length;
+				// return if not seeking a partial
 				if (valLen === 1) return val[0];
 				if (valLen > 1) {
 					val.reverse();
@@ -465,9 +447,15 @@ document.body.onload = (function () {
 						if (innerVal.length > 1) innerVal.reverse();
 						val[k] = innerVal;
 					}
-					return findPartialsFromCell(allRow, val);
+					var finalVal = findPartialsFromCell(allRow, val);
+					for (var attr in finalVal) {
+						findAndReplace(finalVal[attr]);
+					}
+					makeArraysAndObjects(finalVal, '--');
+					return finalVal;
 				}
 			}
+			// return if boolean
 			return val;
 		};
 	};
@@ -503,24 +491,21 @@ document.body.onload = (function () {
 					var flipTabs,
 						tabsToFlip,
 						oppositeFlipTabs = self.meta.verticaltabs.split(' ');
-					console.log(oppositeFlipTabs);
 					if (self.meta.verticaltabsdefault) {
 						tabsToFlip = findSheetNames(self.sheets);
 						for (var i = oppositeFlipTabs.length - 1; i >= 0; i--) {
 							for (var j = tabsToFlip.length - 1; j >= 0; j--) {
-								console.log(tabsToFlip[j]);
 								if (oppositeFlipTabs[i] === tabsToFlip[j]) {
-									delete tabsToFlip[j];
-									tabsToFlip.join(' ').split(' ');
+									tabsToFlip.splice(j, 1);
 								}
 							}
 						}
+						tabsToFlip.join(' ');
 					}
 					if (!self.meta.verticaltabsdefault) tabsToFlip = oppositeFlipTabs;
-					console.log(tabsToFlip);
-					flipTabs = rowColFlipper(tabsToFlip);
+					flipTabs = rowColFlipper(self.meta.axis);
 					// like here
-					flipTabs(self.meta.verticaltabs, self.sheets);
+					flipTabs(tabsToFlip.join(' '), self.sheets);
 					// weed out all empty cells
 					// for (var sheet in self.sheets) {}
 					// get sheet names,
@@ -546,12 +531,12 @@ document.body.onload = (function () {
 						rows = allRow.sheets;
 					self.sheets = {};
 					clearEmptyCells(rows);
-					for (var i = roMeta.length - 1; i >= 0; i--) {
-						var row = allRow.sheets[i];
-						if (!self.sheets[roMeta[i].key]) {
-							self.sheets[roMeta[i].key] = {};
+					for (var l = roMeta.length - 1; l >= 0; l--) {
+						var row = allRow.sheets[l];
+						if (!self.sheets[roMeta[l].key]) {
+							self.sheets[roMeta[l].key] = {};
 						}
-						self.sheets[roMeta[i].key][roMeta[i].val] = row;
+						self.sheets[roMeta[l].key][roMeta[l].val] = row;
 					}
 					// cellular object injection
 					var tunnelSet = setTunnel(self.meta.tunnel, allRow);
@@ -567,6 +552,54 @@ document.body.onload = (function () {
 						}
 					}
 					$(window).trigger('sheetsLoaded.');
+					// write to dom with document fragment
+					var bigFrag = document.createDocumentFragment(),
+						smallFrag;
+					bigFrag.appendChild(document.createElement('ul'));
+					bigFrag.children[0].id = 'data-wrapper';
+					// function recursiveDomBuilder(obj) {
+					// 	var tempFrag = document.createDocumentFragment(),
+					// 		counter = 0;
+					// 	console.log(obj);
+					// 	for (var text in obj) {
+					// 		var li = document.createElement('li');
+					// 		if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
+					// 		if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
+					// 		if (obj[text] === false) li.textContent = text + '\t-> ' + "false";
+					// 		tempFrag.appendChild(li);
+					// 		if (typeof obj[text] === 'object') {
+					// 			var ul = document.createElement('ul');
+					// 			console.log(tempFrag);
+					// 			console.log(tempFrag.children[counter]);
+					// 			ul.appendChild(recursiveDomBuilder(obj[text]));
+					// 			tempFrag.children[counter].appendChild(ul);
+					// 		}
+					// 		counter++;
+					// 	}
+					// 	return tempFrag;
+					// }
+					function recursiveDomBuilder(obj) {
+						var tempFrag = document.createDocumentFragment(),
+							counter = 0;
+						for (var text in obj) {
+							var li = document.createElement('li');
+							li.textContent = text;
+							tempFrag.appendChild(li);
+							if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
+							if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
+							if (obj[text] === false) li.textContent = text + '\t-> ' + "false";
+							if (typeof obj[text] === 'object') {
+								var ul = document.createElement('ul');
+								ul.appendChild(recursiveDomBuilder(obj[text]));
+								tempFrag.children[counter].appendChild(ul);
+							}
+							counter++;
+						}
+						return tempFrag;
+					}
+					smallFrag = recursiveDomBuilder(self.sheets);
+					bigFrag.children[0].appendChild(smallFrag);
+					document.body.appendChild(bigFrag);
 				});
 			});
 		}
@@ -584,7 +617,7 @@ document.body.onload = (function () {
 					projectBtn = '<a class="button" href="' + gSheetData.meta.projecturl + '">Project: ' + gSheetData.meta.projectname + '</a>',
 					phpIncludeCode = '<p><strong>PHP Include:</strong></p><pre>&lt;? $gSheeData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . &quot;/d-tools/g-sheets/json-output-php/' + gSheetData.meta.key + '.php&quot;)) ?&gt;</pre>',
 					phpJsIncludeCode = '<p><strong>PHP JS head Include:</strong></p><pre>&lt;script&gt;&lt;?= var gSheetData = file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/' + gSheetData.meta.key + '.js") ?&gt;&lt;/script&gt;</pre>';
-				document.getElementById("wrapper").innerHTML = d + projectBtn + phpJsIncludeCode + phpIncludeCode + dataString;
+				document.getElementById("wrapper").innerHTML = d + projectBtn + phpJsIncludeCode + phpIncludeCode;
 			});
 			if (gSheetData.meta.open == "TRUE") {
 				window.open(gSheetData.meta.projecturl, "_blank");

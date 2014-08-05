@@ -51,6 +51,7 @@
 			text-decoration: none;
 		}
 	</style>
+	<script>document.write('<script src="http://' + (location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1"></' + 'script>')</script>
 </head>
 
 <body>
@@ -71,6 +72,9 @@
 			echo htmlentities('<?php $gSheetData = unserialize(file_get_contents($_SERVER[\'DOCUMENT_ROOT\'] . "/d-tools/g-sheets/json-output-js/1KP0n4oyc68_-0sCOylGvimPGgn90fj-WsGN5KwbQi2I.json")) ?>');
 
 		?>
+		</div>
+		<div class="con">
+			<div id='data-wrapper'></div>
 		</div>
 		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 		<script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.2.min.js"><\/script>');</script>

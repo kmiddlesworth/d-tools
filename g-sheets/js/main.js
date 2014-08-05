@@ -556,34 +556,21 @@ document.body.onload = (function () {
 					var bigFrag = document.createDocumentFragment(),
 						smallFrag;
 					bigFrag.appendChild(document.createElement('ul'));
-					bigFrag.children[0].id = 'data-wrapper';
-					// function recursiveDomBuilder(obj) {
-					// 	var tempFrag = document.createDocumentFragment(),
-					// 		counter = 0;
-					// 	console.log(obj);
-					// 	for (var text in obj) {
-					// 		var li = document.createElement('li');
-					// 		if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
-					// 		if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
-					// 		if (obj[text] === false) li.textContent = text + '\t-> ' + "false";
-					// 		tempFrag.appendChild(li);
-					// 		if (typeof obj[text] === 'object') {
-					// 			var ul = document.createElement('ul');
-					// 			console.log(tempFrag);
-					// 			console.log(tempFrag.children[counter]);
-					// 			ul.appendChild(recursiveDomBuilder(obj[text]));
-					// 			tempFrag.children[counter].appendChild(ul);
-					// 		}
-					// 		counter++;
-					// 	}
-					// 	return tempFrag;
-					// }
+
 					function recursiveDomBuilder(obj) {
 						var tempFrag = document.createDocumentFragment(),
 							counter = 0;
 						for (var text in obj) {
 							var li = document.createElement('li');
 							li.textContent = text;
+							li.onclick = function () {
+								for (var i = this.children.length - 1; i >= 0; i--) {
+									if (this.children[i].tagName === "UL") {
+										this.children[i].classList.add("open");
+									}
+								}
+								console.log(console.log(this.children));
+							};
 							tempFrag.appendChild(li);
 							if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
 							if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
@@ -599,7 +586,9 @@ document.body.onload = (function () {
 					}
 					smallFrag = recursiveDomBuilder(self.sheets);
 					bigFrag.children[0].appendChild(smallFrag);
-					document.body.appendChild(bigFrag);
+					document.getElementById("data-wrapper").appendChild(bigFrag);
+					var sheetList = document.getElementById('data-wrapper').children[0].children;
+					console.log(sheetList);
 				});
 			});
 		}

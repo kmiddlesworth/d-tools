@@ -311,21 +311,7 @@ body {
   h2, h3 {
     page-break-after: avoid; } }
 #data-wrapper li, #data-wrapper ul {
-  line-height: 24px;
   list-style-type: none !important;
-  margin: 0;
-  overflow: hidden; }
-#data-wrapper li {
-  background: rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  border: 1px solid transparent; }
-  #data-wrapper li:hover {
-    border: 1px solid black; }
+  margin-top: 0; }
 #data-wrapper > ul {
   padding: 0; }
-  #data-wrapper > ul li ul {
-    max-height: 0;
-    border: 0px solid black; }
-    #data-wrapper > ul li ul.open {
-      max-height: 9999px;
-      border: 1px solid black; }

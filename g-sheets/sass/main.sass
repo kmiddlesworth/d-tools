@@ -1,3 +1,4 @@
+@import compass
 /*! HTML5 Boilerplate v4.3.0 | MIT License | http://h5bp.com/
 	*/
 /*
@@ -333,6 +334,7 @@ body
 		list-style-type: none !important
 		margin: 0
 		overflow: hidden
+		font-family: courier
 	li
 		background: rgba(0,0,0,0.1)
 		cursor: pointer
@@ -344,7 +346,9 @@ body
 		li ul
 			max-height: 0
 			border: 0px solid black
-			+transition(max-height 0.3s)
+			+transition(max-height 0s 0s)
+
 			&.open
 				max-height: 9999px
 				border: 1px solid black
+				+transition(max-height 4s linear 0s)

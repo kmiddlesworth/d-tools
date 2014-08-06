@@ -557,24 +557,34 @@ document.body.onload = (function () {
 						smallFrag;
 					bigFrag.appendChild(document.createElement('ul'));
 
+					function removeRecursive(parent, classString) {
+						for (var i = parent.children.length - 1; i >= 0; i--) {
+							if (parent.children[i].classList.contains(classString)) {
+								parent.children[i].classList.remove(classString);
+							}
+							removeRecursive(parent.children[i], classString);
+						}
+					}
+					var interfaceOnclickFunk = function (party) {
+						party.stopPropagation();
+						for (var i = this.children.length - 1; i >= 0; i--) {
+							if (this.children[i].tagName === 'UL') {
+								if (!this.children[i].classList.contains('open')) {
+									this.children[i].classList.add('open');
+								} else {
+									removeRecursive(this, 'open');
+								}
+							}
+						}
+					};
+
 					function recursiveDomBuilder(obj) {
 						var tempFrag = document.createDocumentFragment(),
 							counter = 0;
 						for (var text in obj) {
 							var li = document.createElement('li');
 							li.textContent = text;
-							li.onclick = function (party) {
-								party.stopPropagation();
-								for (var i = this.children.length - 1; i >= 0; i--) {
-									if (this.children[i].tagName === 'UL') {
-										if (!this.children[i].classList.contains('open')) {
-											this.children[i].classList.add('open');
-										} else {
-											this.children[i].classList.remove('open');
-										}
-									}
-								}
-							};
+							li.onclick = interfaceOnclickFunk;
 							tempFrag.appendChild(li);
 							if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
 							if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
@@ -592,7 +602,6 @@ document.body.onload = (function () {
 					bigFrag.children[0].appendChild(smallFrag);
 					document.getElementById("data-wrapper").appendChild(bigFrag);
 					var sheetList = document.getElementById('data-wrapper').children[0].children;
-					console.log(sheetList);
 				});
 			});
 		}

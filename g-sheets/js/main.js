@@ -563,13 +563,17 @@ document.body.onload = (function () {
 						for (var text in obj) {
 							var li = document.createElement('li');
 							li.textContent = text;
-							li.onclick = function () {
+							li.onclick = function (party) {
+								party.stopPropagation();
 								for (var i = this.children.length - 1; i >= 0; i--) {
-									if (this.children[i].tagName === "UL") {
-										this.children[i].classList.add("open");
+									if (this.children[i].tagName === 'UL') {
+										if (!this.children[i].classList.contains('open')) {
+											this.children[i].classList.add('open');
+										} else {
+											this.children[i].classList.remove('open');
+										}
 									}
 								}
-								console.log(console.log(this.children));
 							};
 							tempFrag.appendChild(li);
 							if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];

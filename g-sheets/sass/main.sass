@@ -328,7 +328,12 @@ body
 	h2, h3
 		page-break-after: avoid
 
+$scrubs-green: #4fb876
+$list-item-height: 34px
+$list-item-spacer: 4px
+$list-item-padding: 3px
 #data-wrapper
+	margin-bottom: 50px
 	li, ul
 		line-height: 24px
 		list-style-type: none !important
@@ -336,19 +341,34 @@ body
 		overflow: hidden
 		font-family: courier
 	li
-		background: rgba(0,0,0,0.1)
 		cursor: pointer
-		border: 1px solid rgba(0,0,0,0)
-		&:hover
-			border: 1px solid black
+		&.obj-con
+			> h5
+				border: 1px solid $scrubs-green
+				margin-bottom: $list-item-spacer
+				&:before
+					content: '+'
+					font-size: 20px
+					line-height: 20px
+					text-align: center
+					height: 20px
+					width: 20px
+					margin-top: 2px
+					margin-left: -20px
+					margin-right: 10px
+					display: block
+					float: left
+			&.open > h5:before
+				content: '-'
+	h5
+		margin: 0
+		padding: $list-item-padding 0 $list-item-padding 24px
 	> ul
 		padding: 0
 		li ul
 			max-height: 0
-			border: 0px solid black
-			+transition(max-height 0s 0s)
+			+transition(max-height 0s linear 0s)
 
 			&.open
 				max-height: 9999px
-				border: 1px solid black
 				+transition(max-height 4s linear 0s)

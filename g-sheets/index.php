@@ -14,9 +14,6 @@
 
 	<script src="js/vendor/modernizr-2.6.2.min.js"></script>
 	<style>
-		body {
-			padding:30px 0;
-		}
 		h1 {
 			margin-bottom:0;
 		}

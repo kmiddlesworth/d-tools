@@ -565,8 +565,24 @@ document.body.onload = (function () {
 							removeRecursive(parent.children[i], classString);
 						}
 					}
+
+					function getOffset(el) {
+						var _x = 0;
+						var _y = 0;
+						while (el && !isNaN(el.offsetLeft) && !isNaN(el.offsetTop)) {
+							_x += el.offsetLeft - el.scrollLeft;
+							_y += el.offsetTop - el.scrollTop;
+							el = el.offsetParent;
+						}
+						return {
+							top: _y,
+							left: _x
+						};
+					}
+					var x = getOffset(document.getElementById('yourElId')).left;
 					var interfaceOnclickFunk = function (party) {
 						party.stopPropagation();
+						this.classList.toggle('open');
 						for (var i = this.children.length - 1; i >= 0; i--) {
 							if (this.children[i].tagName === 'UL') {
 								if (!this.children[i].classList.contains('open')) {
@@ -582,16 +598,25 @@ document.body.onload = (function () {
 						var tempFrag = document.createDocumentFragment(),
 							counter = 0;
 						for (var text in obj) {
-							var li = document.createElement('li');
-							li.textContent = text;
+							var li = document.createElement('li'),
+								h5 = document.createElement('h5');
+							h5.textContent = text;
+							if (typeof obj[text] === 'string') {
+								h5.textContent = text + '\t-> ' + obj[text];
+							}
+							if (obj[text] === true) {
+								h5.textContent = text + '\t-> ' + "true";
+							}
+							if (obj[text] === false) {
+								h5.textContent = text + '\t-> ' + "false";
+							}
+							li.appendChild(h5);
 							li.onclick = interfaceOnclickFunk;
 							tempFrag.appendChild(li);
-							if (typeof obj[text] === 'string') li.textContent = text + '\t-> ' + obj[text];
-							if (obj[text] === true) li.textContent = text + '\t-> ' + "true";
-							if (obj[text] === false) li.textContent = text + '\t-> ' + "false";
 							if (typeof obj[text] === 'object') {
 								var ul = document.createElement('ul');
 								ul.appendChild(recursiveDomBuilder(obj[text]));
+								tempFrag.children[counter].classList.add('obj-con');
 								tempFrag.children[counter].appendChild(ul);
 							}
 							counter++;

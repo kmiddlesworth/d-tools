@@ -1,6 +1,19 @@
+// general rules
+// use if statements and not if else statements
+// count down arrays backward, and using a i--, reverse the array if you have to.
+// break things out into functions.
+// try to use variables to save long dot operator chains / bracketed chains.
+// could not decide whether it was better to build functionally or with object orientation.
+// 		since functions in object orientation started becoming excessivly large for certain pieces
+// 		it was found that it may be best to simply build out the functions, and change them to properties later if the structure calls for it.
+// general ideas
+// see if it's possible (probably is) to make this in to npm module
+// see if it's possible to add an on off logger function that can be turned on / off if in dev.
 var globalVar;
 document.body.onload = (function () {
+	// please write in strict to make things consistant
 	"use strict";
+	// this can be removed if this entire thing ends up becoming a node module.
 	if (!Array.prototype.filter) {
 		Array.prototype.filter = function (fun /*, thisArg */ ) {
 			if (this === void 0 || this === null) throw new TypeError();
@@ -26,7 +39,7 @@ document.body.onload = (function () {
 			}
 		};
 	}
-
+	// function to create object from url query string
 	function getUrlParams() {
 		var paramStr = window.location.search,
 			keyValueObj = {};
@@ -43,7 +56,7 @@ document.body.onload = (function () {
 			return keyValueObj;
 		}
 	}
-
+	// experimental function for trying out recursive tunneling with an array
 	function grabThingAtPath(start, path) {
 		var nextLevel = start;
 		for (var i = 0, pathLen = path.length; i < pathLen; i++) {
@@ -63,9 +76,9 @@ document.body.onload = (function () {
 			newArray = [];
 		// set and max vals
 		if (range.max === undefined) max = myArray.length;
-		else max = range.max;
+		if (range.max !== undefined) max = range.max;
 		if (range.min === undefined) min = 0;
-		else min = range.min;
+		if (range.min !== undefined) min = range.min;
 		if (range.max) {
 			for (var i = max; i >= min; i--) {
 				newArray(myArray[i]);
@@ -150,6 +163,7 @@ document.body.onload = (function () {
 			}
 		};
 	}
+	// factory function for creating serve objects
 	var SheetServe = function sheetServe(keyStr) {
 		this["meta"] = {};
 		this["sheets"] = {};
@@ -164,6 +178,8 @@ document.body.onload = (function () {
 		this["meta"]["configStr"] = "config";
 		return this;
 	};
+	// ajax request to pull down data and write it to json object.
+	// play with using date object to have version control or versions up to 10x ago
 	SheetServe.prototype.toFileWriter = function (obj, fileName, callback) {
 		var selfie = this;
 		$.ajax({
@@ -346,7 +362,9 @@ document.body.onload = (function () {
 		}
 		return returnedObj;
 	};
-
+	// divide sheets in two, allowing for another object to act as a pointer,
+	// this may be not such a good path since there is really no data being moved around in js.
+	// only realized this after some constant reflection and a few meetups. :D
 	function divideParallel(start, location, attrs) {
 		var startLen = start[location.from].length;
 		if (!start[location.to]) {
@@ -360,7 +378,7 @@ document.body.onload = (function () {
 			start[location.to][i] = tempObj;
 		}
 	}
-
+	// pull object up from array, using the first cell in row as the new name
 	function pullObjsUp(start, newAttr) {
 		var newObj = [];
 		for (var tName in start) {
@@ -391,7 +409,8 @@ document.body.onload = (function () {
 			}
 		}
 	}
-
+	// delete the references that are empty,
+	// set string true / false to bool true / false
 	function clearEmptyCells(that) {
 		for (var i = that.length - 1; i >= 0; i--) {
 			var ro = that[i];
@@ -410,7 +429,7 @@ document.body.onload = (function () {
 		}
 		return tempArr;
 	}
-
+	// find the partial that is named
 	function findPartial(origin, tab, row) {
 		var meta = origin.meta,
 			sheets = origin.sheets;
@@ -421,7 +440,8 @@ document.body.onload = (function () {
 		}
 		return undefined;
 	}
-
+	// this is the final product of playing with row injection
+	// use this as a starting point for building it better
 	function findPartialsFromCell(allRows, val) {
 		var retObj = {};
 		if (val.length === 2) {
@@ -556,7 +576,7 @@ document.body.onload = (function () {
 					var bigFrag = document.createDocumentFragment(),
 						smallFrag;
 					bigFrag.appendChild(document.createElement('ul'));
-
+					// function for removing classes, as you open and close the accordion for the object display
 					function removeRecursive(parent, classString) {
 						for (var i = parent.children.length - 1; i >= 0; i--) {
 							if (parent.children[i].classList.contains(classString)) {
@@ -565,7 +585,7 @@ document.body.onload = (function () {
 							removeRecursive(parent.children[i], classString);
 						}
 					}
-
+					// get offset of element (no jquery)
 					function getOffset(el) {
 						var _x = 0;
 						var _y = 0;
@@ -593,7 +613,8 @@ document.body.onload = (function () {
 							}
 						}
 					};
-
+					// create a document fragment, put the object's text into it, and display it on a page.
+					// would be great to build this into a div before the body really starts.
 					function recursiveDomBuilder(obj) {
 						var tempFrag = document.createDocumentFragment(),
 							counter = 0;
